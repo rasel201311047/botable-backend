@@ -1,0 +1,258 @@
+{
+  "info": {
+    "name": "Notifications API",
+    "description": "Real-time notification system with Socket.IO integration for user notifications, alerts, and updates",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "notification-api-collection",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Get All Notifications",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications?page=1&limit=20",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "description": "Page number (default: 1)"
+            },
+            {
+              "key": "limit",
+              "value": "20",
+              "description": "Items per page (default: 20)"
+            },
+            {
+              "key": "read",
+              "value": "false",
+              "description": "Filter by read status (true/false)",
+              "disabled": true
+            },
+            {
+              "key": "type",
+              "value": "SUBSCRIPTION",
+              "description": "Filter by type: SUBSCRIPTION, WORKOUT, MEAL, REMINDER, ACHIEVEMENT, SYSTEM, SLEEP_RECOVERY, AI_INSIGHT, CALENDAR, ADMIN",
+              "disabled": true
+            },
+            {
+              "key": "priority",
+              "value": "HIGH",
+              "description": "Filter by priority: LOW, MEDIUM, HIGH, URGENT",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get user's notifications with pagination and optional filters.\n\n**Query Parameters:**\n- `page` - Page number (default: 1)\n- `limit` - Items per page (default: 20, max: 100)\n- `read` - Filter by read status (true/false)\n- `type` - Filter by notification type\n- `priority` - Filter by priority level\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notifications\": [...],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 20,\n      \"total\": 50,\n      \"pages\": 3\n    }\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Unread Count",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/unread/count",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "unread", "count"]
+        },
+        "description": "Get the count of unread notifications for the authenticated user.\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"count\": 5\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Notification by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/{{notificationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "{{notificationId}}"]
+        },
+        "description": "Get a specific notification by ID.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notification\": {\n      \"_id\": \"65f123...\",\n      \"user\": \"65f456...\",\n      \"type\": \"SUBSCRIPTION\",\n      \"title\": \"Subscription Activated\",\n      \"message\": \"Your Premium subscription is now active!\",\n      \"data\": {},\n      \"priority\": \"MEDIUM\",\n      \"read\": false,\n      \"actionUrl\": \"/subscription\",\n      \"icon\": \"🎉\",\n      \"createdAt\": \"2026-02-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-02-01T10:00:00.000Z\"\n    }\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Mark Notification as Read",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/read",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "{{notificationId}}", "read"]
+        },
+        "description": "Mark a specific notification as read.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Real-time Event:** Emits `notification_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notification\": {\n      \"_id\": \"65f123...\",\n      \"read\": true,\n      \"readAt\": \"2026-02-01T10:30:00.000Z\",\n      ...\n    }\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Mark All as Read",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/read-all",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "read-all"]
+        },
+        "description": "Mark all notifications as read for the authenticated user.\n\n**Real-time Event:** Emits `all_notifications_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"All notifications marked as read\",\n  \"data\": {\n    \"modifiedCount\": 15\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Mark Many as Read",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"notificationIds\": [\n    \"65f123abc456...\",\n    \"65f123abc789...\",\n    \"65f123abcdef...\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/read-many",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "read-many"]
+        },
+        "description": "Mark multiple notifications as read.\n\n**Request Body:**\n```json\n{\n  \"notificationIds\": [\"id1\", \"id2\", \"id3\"]\n}\n```\n\n**Real-time Event:** Emits `notifications_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Notifications marked as read\",\n  \"data\": {\n    \"modifiedCount\": 3\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Notification",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/{{notificationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "{{notificationId}}"]
+        },
+        "description": "Delete a specific notification.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Real-time Event:** Emits `notification_deleted` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Notification deleted successfully\"\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Delete All Read Notifications",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/read",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "read"]
+        },
+        "description": "Delete all read notifications for the authenticated user.\n\n**Real-time Event:** Emits `read_notifications_deleted` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"All read notifications deleted\",\n  \"data\": {\n    \"deletedCount\": 10\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Create Custom Notification (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"65f123abc456...\",\n  \"type\": \"SYSTEM\",\n  \"title\": \"Important Update\",\n  \"message\": \"We've updated our terms of service. Please review them.\",\n  \"priority\": \"HIGH\",\n  \"data\": {\n    \"version\": \"2.0\"\n  },\n  \"actionUrl\": \"/terms\",\n  \"icon\": \"📢\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/custom",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "custom"]
+        },
+        "description": "Create a custom notification for a specific user (Admin only).\n\n**Required Fields:**\n- `userId` - Target user ID\n- `title` - Notification title\n- `message` - Notification message\n\n**Optional Fields:**\n- `type` - Notification type (default: SYSTEM)\n- `priority` - Priority level (default: MEDIUM)\n- `data` - Additional data object\n- `actionUrl` - URL for action button\n- `icon` - Emoji or icon\n\n**Real-time:** Sends notification via Socket.IO immediately\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notification\": {...}\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Send Bulk Notifications (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userIds\": [\n    \"65f123abc456...\",\n    \"65f123abc789...\",\n    \"65f123abcdef...\"\n  ],\n  \"type\": \"SYSTEM\",\n  \"title\": \"Scheduled Maintenance\",\n  \"message\": \"The system will undergo maintenance on Sunday at 2 AM.\",\n  \"priority\": \"MEDIUM\",\n  \"data\": {\n    \"maintenanceDate\": \"2026-02-07T02:00:00Z\"\n  },\n  \"actionUrl\": \"/announcements\",\n  \"icon\": \"🔧\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/bulk",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "bulk"]
+        },
+        "description": "Send notifications to multiple users at once (Admin only).\n\n**Required Fields:**\n- `userIds` - Array of user IDs\n- `title` - Notification title\n- `message` - Notification message\n\n**Optional Fields:**\n- `type` - Notification type (default: SYSTEM)\n- `priority` - Priority level (default: MEDIUM)\n- `data` - Additional data object\n- `actionUrl` - URL for action button\n- `icon` - Emoji or icon\n\n**Real-time:** Sends notifications via Socket.IO to all users\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Bulk notifications sent to 3 users\",\n  \"data\": {\n    \"count\": 3\n  }\n}\n```"
+      },
+      "response": []
+    },
+    {
+      "name": "Test Notification (Dev)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"SYSTEM\",\n  \"title\": \"Test Notification\",\n  \"message\": \"This is a test notification for development\",\n  \"priority\": \"LOW\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/test",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "test"]
+        },
+        "description": "Send a test notification to yourself (Development only - not available in production).\n\n**Optional Fields:**\n- `type` - Notification type (default: SYSTEM)\n- `title` - Notification title (default: \"Test Notification\")\n- `message` - Notification message\n- `priority` - Priority level (default: MEDIUM)\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Test notification sent\",\n  \"data\": {\n    \"notification\": {...}\n  }\n}\n```"
+      },
+      "response": []
+    }
+  ]
+}

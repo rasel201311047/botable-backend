@@ -1,0 +1,3859 @@
+{
+  "info": {
+    "_postman_id": "d435158e-8b97-4158-978b-7827c8f27757",
+    "name": "BOOTBLE API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "40735701",
+    "_collection_link": "https://go.postman.co/collection/40735701-d435158e-8b97-4158-978b-7827c8f27757?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "AUTHENTICATION ENDPOINTS",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"John Doe\",\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"password\": \"Password123\",\r\n  \"confirmPassword\": \"Password123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/register",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Parse JSON safely\r",
+                  "let json;\r",
+                  "try {\r",
+                  "  json = pm.response.json();\r",
+                  "} catch (err) {\r",
+                  "  console.error(\"❌ Response is not valid JSON:\", pm.response.text());\r",
+                  "  pm.test(\"Response must be JSON\", () => pm.expect.fail(\"Response is not JSON\"));\r",
+                  "  return;\r",
+                  "}\r",
+                  "\r",
+                  "// Log response to console (for debugging)\r",
+                  "console.log(\"🔍 Login Response:\", json);\r",
+                  "\r",
+                  "// Extract token and user data (based on your actual structure)\r",
+                  "const accessToken = json.data?.token;\r",
+                  "const refreshToken = json.data?.refreshToken || null;\r",
+                  "const tokenType = 'Bearer'; // your API doesn’t return this, so we set manually\r",
+                  "const expiresIn = 3600; // default 1 hour expiry (adjust if backend sends real expiry)\r",
+                  "\r",
+                  "// If we got a token, save it\r",
+                  "if (accessToken) {\r",
+                  "  // Save into current environment\r",
+                  "  pm.environment.set(\"bearerToken\", accessToken);\r",
+                  "  pm.environment.set(\"tokenType\", tokenType);\r",
+                  "  if (refreshToken) pm.environment.set(\"refreshToken\", refreshToken);\r",
+                  "\r",
+                  "  // Optional: calculate token expiry timestamp\r",
+                  "  const expiry = Date.now() + expiresIn * 1000;\r",
+                  "  pm.environment.set(\"tokenExpiresAt\", expiry.toString());\r",
+                  "\r",
+                  "  // Log confirmation\r",
+                  "  console.log(\"✅ Saved bearerToken:\", accessToken);\r",
+                  "  console.log(\"✅ tokenType:\", tokenType);\r",
+                  "\r",
+                  "  // Test success\r",
+                  "  pm.test(\"Access token saved successfully\", () => {\r",
+                  "    pm.expect(accessToken).to.be.ok;\r",
+                  "  });\r",
+                  "} else {\r",
+                  "  console.error(\"❌ No token found in response\");\r",
+                  "  pm.test(\"Access token missing\", () => pm.expect.fail(\"Token missing in response\"));\r",
+                  "}\r",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"password\": \"NewPassword123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/login",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email with OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"otp\": \"690458\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/verify-email",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password (Send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/forgot-password",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password with OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"otp\": \"246312\",\r\n  \"newPassword\": \"NewPassword123\",\r\n  \"confirmPassword\": \"NewPassword123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/reset-password",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User Profile",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"otp\": \"246312\",\r\n  \"newPassword\": \"NewPassword123\",\r\n  \"confirmPassword\": \"NewPassword123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/auth/me",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ONBOARDING ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Available Shifts",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/shifts",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "shifts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Goals",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/goals",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "goals"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Shift",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"shiftType\": \"fixed_night\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/shift",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "shift"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Goal",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"goalType\": \"fat_loss\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/goal",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "goal"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/complete",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "complete"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Onboarding Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/onboarding/status",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "onboarding",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "USER MANAGEMENT ENDPOINTS",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"dev.mhakash@gmail.com\",\r\n  \"otp\": \"246312\",\r\n  \"newPassword\": \"NewPassword123\",\r\n  \"confirmPassword\": \"NewPassword123\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/profile",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"John Smith\",\r\n  \"height\": 182,\r\n  \"weight\": 78,\r\n  \"age\": 31,\r\n  \"gender\": \"male\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/profile",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Profile Photo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "profilePhoto",
+                  "type": "file",
+                  "uuid": "bd268e2e-0136-4165-8942-79253977d5df",
+                  "src": "/C:/Users/devmh/OneDrive/Desktop/unnamed.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/profile-photo",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "profile-photo"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"preferences\": {\r\n    \"measurementSystem\": \"metric\",\r\n    \"language\": \"en\",\r\n    \"timezone\": \"Asia/Dhaka\"\r\n  }\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/preferences",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "preferences"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Notification Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/notifications",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "notifications"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/stats",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Activity Feed",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/activity?limit=10&page=1",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"password\": \"Password123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/users/account",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "users",
+                "account"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "USER HOME DASHBOARD ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Home Dashboard Data",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/dashboard/home",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "dashboard",
+                "home"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Dashboard Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/dashboard/stats?period=week",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "dashboard",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week",
+                  "description": "period: day/week/month (default: week)"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "NUTRITION ENDPOINTS",
+      "item": [
+        {
+          "name": "Search Foods",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/foods/search?q=apple&page=1&limit=20",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "foods",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "apple"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Nutrition",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/foods/usda/2709294",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "foods",
+                "usda",
+                "2709294"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Food Details",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"notifications\": {\r\n    \"workoutReminders\": true,\r\n    \"mealReminders\": false,\r\n    \"sleepReminders\": true,\r\n    \"shiftReminders\": true,\r\n    \"promotional\": false\r\n  }\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/foods/:id",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "foods",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Custom Food",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Homemade Protein Bar\",\r\n  \"servingSize\": 50,\r\n  \"calories\": 200,\r\n  \"protein\": 15,\r\n  \"carbs\": 20,\r\n  \"fat\": 8,\r\n  \"brand\": \"Homemade\",\r\n  \"description\": \"High protein homemade snack bar\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/foods/custom",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "foods",
+                "custom"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add a Meal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"foodId\": \"usda_2709294\",\r\n  \"quantity\": 150,\r\n  \"mealType\": \"snack\",    //enum: ['breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout']\r\n  \"title\": \"Apple Snack\",\r\n  \"scheduledTime\": \"15:30\",\r\n  \"notes\": \"Afternoon snack\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/meals",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "meals"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Meals",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"foodId\": \"usda_2709294\",\r\n  \"quantity\": 150,\r\n  \"mealType\": \"snack\",\r\n  \"title\": \"Apple Snack\",\r\n  \"scheduledTime\": \"15:30\",\r\n  \"notes\": \"Afternoon snack\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/meals?date=2026-01-25",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "meals"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Meal by ID",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"foodId\": \"usda_2709294\",\r\n  \"quantity\": 150,\r\n  \"mealType\": \"snack\",\r\n  \"title\": \"Apple Snack\",\r\n  \"scheduledTime\": \"15:30\",\r\n  \"notes\": \"Afternoon snack\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/meals/:id",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "meals",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Nutrition Summary",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"foodId\": \"usda_2709294\",\r\n  \"quantity\": 150,\r\n  \"mealType\": \"snack\",\r\n  \"title\": \"Apple Snack\",\r\n  \"scheduledTime\": \"15:30\",\r\n  \"notes\": \"Afternoon snack\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/summary?startDate=2026-01-01&endDate=2026-01-31",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-01-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Nutrition Targets",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"foodId\": \"usda_2709294\",\r\n  \"quantity\": 150,\r\n  \"mealType\": \"snack\",\r\n  \"title\": \"Apple Snack\",\r\n  \"scheduledTime\": \"15:30\",\r\n  \"notes\": \"Afternoon snack\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/targets",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "targets"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Nutrition Targets",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"calorieTarget\": 2300,\r\n  \"proteinTarget\": 172,\r\n  \"carbTarget\": 230,\r\n  \"fatTarget\": 90\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/targets",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "targets"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update a Meal",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"quantity\": 350,\r\n  \"mealType\": \"post_workout\",  //enum: ['breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout']\r\n  \"notes\": \"Increased portion after intense workout\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/meals/6975bf979770130ed64cbaab",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "meals",
+                "6975bf979770130ed64cbaab"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a Meal",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"quantity\": 350,\r\n  \"mealType\": \"post_workout\",  //enum: ['breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout']\r\n  \"notes\": \"Increased portion after intense workout\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/nutrition/meals/6975bf8e9770130ed64cbaa6",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "nutrition",
+                "meals",
+                "6975bf8e9770130ed64cbaa6"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WORKOUT ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Workouts",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"calorieTarget\": 2300,\r\n  \"proteinTarget\": 172,\r\n  \"carbTarget\": 230,\r\n  \"fatTarget\": 90\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts?search=dumbbell&category=strength&page=1&limit=20",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "dumbbell"
+                },
+                {
+                  "key": "category",
+                  "value": "strength",
+                  "description": "enum: ['strength', 'cardio', 'hiit', 'yoga', 'recovery', 'custom']"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workout by ID",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"calorieTarget\": 2300,\r\n  \"proteinTarget\": 172,\r\n  \"carbTarget\": 230,\r\n  \"fatTarget\": 90\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/6974a00dc11d050db573670d",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "6974a00dc11d050db573670d"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Custom Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"title\": \"Upper Body Strength\",\r\n  \"description\": \"Focus on chest, back, and shoulders\",\r\n  \"durationMinutes\": 60,\r\n  \"category\": \"strength\",  //enum: ['strength', 'cardio', 'hiit', 'yoga', 'recovery', 'custom'],\r\n  \"intensity\": \"high\",  //enum: ['low', 'medium', 'high'],\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"rest\": 90\r\n    },\r\n    {\r\n      \"name\": \"Pull-ups\",\r\n      \"sets\": 4,\r\n      \"reps\": 10,\r\n      \"rest\": 60\r\n    }\r\n  ],\r\n  \"equipment\": [\"barbell\", \"pull-up bar\"], //enum: ['dumbbells', 'barbell', 'kettlebell', 'resistance_bands', 'bodyweight', 'machine',\"pull-up bar\", 'none']\r\n  \"tags\": [\"upper body\", \"strength\"],\r\n  \"isPublic\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Workout",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"title\": \"Upper Body Power\",\r\n  \"durationMinutes\": 55,\r\n  \"intensity\": \"high\"  ////enum: ['low', 'medium', 'high'],\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/6975e1283e18f4e37723e778",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "6975e1283e18f4e37723e778"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Schedule a Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"6974a00dc11d050db573670d\",\r\n  \"date\": \"2026-01-25\",\r\n  \"scheduledTime\": \"18:00\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/schedule",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "schedule"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scheduled Workouts",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"651a1b2c3d4e5f6a7b8c9d50\",\r\n  \"scheduledTime\": \"18:00\",\r\n  \"actualStartTime\": \"2026-01-25T18:05:00.000Z\",\r\n  \"actualEndTime\": \"2026-01-25T18:50:00.000Z\",\r\n  \"durationMinutes\": 45,\r\n  \"intensity\": \"high\",  ////enum: ['low', 'medium', 'high'],\r\n  \"completionPercentage\": 100,\r\n  \"notes\": \"Felt strong today\",\r\n  \"rating\": 5,\r\n  \"perceivedExertion\": 8,\r\n  \"caloriesBurned\": 350,\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"completedSets\": 4,\r\n      \"completedReps\": 32,\r\n      \"notes\": \"Increased weight\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/scheduled?date=2026-01-25",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "scheduled"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25",
+                  "description": "Date to check (default: today)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Workout",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"title\": \"Upper Body Power\",\r\n  \"durationMinutes\": 55,\r\n  \"intensity\": \"high\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/6975e1283e18f4e37723e778",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "6975e1283e18f4e37723e778"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Log Workout Completion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"651a1b2c3d4e5f6a7b8c9d50\",\r\n  \"scheduledTime\": \"18:00\",\r\n  \"actualStartTime\": \"2026-01-25T18:05:00.000Z\",\r\n  \"actualEndTime\": \"2026-01-25T18:50:00.000Z\",\r\n  \"durationMinutes\": 45,\r\n  \"intensity\": \"high\",  ////enum: ['low', 'medium', 'high'],\r\n  \"completionPercentage\": 100,\r\n  \"notes\": \"Felt strong today\",\r\n  \"rating\": 5,\r\n  \"perceivedExertion\": 8,\r\n  \"caloriesBurned\": 350,\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"completedSets\": 4,\r\n      \"completedReps\": 32,\r\n      \"notes\": \"Increased weight\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/log",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "log"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workout Logs",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"651a1b2c3d4e5f6a7b8c9d50\",\r\n  \"scheduledTime\": \"18:00\",\r\n  \"actualStartTime\": \"2026-01-25T18:05:00.000Z\",\r\n  \"actualEndTime\": \"2026-01-25T18:50:00.000Z\",\r\n  \"durationMinutes\": 45,\r\n  \"intensity\": \"high\",  ////enum: ['low', 'medium', 'high'],\r\n  \"completionPercentage\": 100,\r\n  \"notes\": \"Felt strong today\",\r\n  \"rating\": 5,\r\n  \"perceivedExertion\": 8,\r\n  \"caloriesBurned\": 350,\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"completedSets\": 4,\r\n      \"completedReps\": 32,\r\n      \"notes\": \"Increased weight\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/logs?date=2026-01-25&completed=true&limit=20&page=1",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25"
+                },
+                {
+                  "key": "completed",
+                  "value": "true"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workout Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"651a1b2c3d4e5f6a7b8c9d50\",\r\n  \"scheduledTime\": \"18:00\",\r\n  \"actualStartTime\": \"2026-01-25T18:05:00.000Z\",\r\n  \"actualEndTime\": \"2026-01-25T18:50:00.000Z\",\r\n  \"durationMinutes\": 45,\r\n  \"intensity\": \"high\",  ////enum: ['low', 'medium', 'high'],\r\n  \"completionPercentage\": 100,\r\n  \"notes\": \"Felt strong today\",\r\n  \"rating\": 5,\r\n  \"perceivedExertion\": 8,\r\n  \"caloriesBurned\": 350,\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"completedSets\": 4,\r\n      \"completedReps\": 32,\r\n      \"notes\": \"Increased weight\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/workouts/stats?period=week",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "workouts",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week",
+                  "description": "period: day/week/month (default: week)"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SLEEP & RECOVERY ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Recovery Activities",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"workoutId\": \"651a1b2c3d4e5f6a7b8c9d50\",\r\n  \"scheduledTime\": \"18:00\",\r\n  \"actualStartTime\": \"2026-01-25T18:05:00.000Z\",\r\n  \"actualEndTime\": \"2026-01-25T18:50:00.000Z\",\r\n  \"durationMinutes\": 45,\r\n  \"intensity\": \"high\",  ////enum: ['low', 'medium', 'high'],\r\n  \"completionPercentage\": 100,\r\n  \"notes\": \"Felt strong today\",\r\n  \"rating\": 5,\r\n  \"perceivedExertion\": 8,\r\n  \"caloriesBurned\": 350,\r\n  \"exercises\": [\r\n    {\r\n      \"name\": \"Bench Press\",\r\n      \"sets\": 4,\r\n      \"reps\": 8,\r\n      \"weight\": 60,\r\n      \"completedSets\": 4,\r\n      \"completedReps\": 32,\r\n      \"notes\": \"Increased weight\"\r\n    }\r\n  ]\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/sleep-recovery/activities",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sleep-recovery",
+                "activities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Log Sleep/Recovery Activity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"activityKey\": \"daytime_sleep\",  //enum: ['post_shift_wind_down','daytime_sleep','nervous_system_reset','pre_shift_focus','night_sleep','nap' ]\r\n  \"startTime\": \"14:30\",\r\n  \"endTime\": \"15:00\",\r\n  \"quality\": \"good\",\r\n  \"notes\": \"Deep sleep after night shift\",\r\n  \"energyBefore\": 3,\r\n  \"energyAfter\": 8\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/sleep-recovery/log",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sleep-recovery",
+                "log"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sleep Logs",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"activityKey\": \"daytime_sleep\",  //enum: ['post_shift_wind_down','daytime_sleep','nervous_system_reset','pre_shift_focus','night_sleep','nap' ]\r\n  \"startTime\": \"09:30\",\r\n  \"endTime\": \"15:00\",\r\n  \"quality\": \"good\",\r\n  \"notes\": \"Deep sleep after night shift\",\r\n  \"energyBefore\": 3,\r\n  \"energyAfter\": 8\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/sleep-recovery/logs?date=2026-01-25&limit=10",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sleep-recovery",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sleep Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/sleep-recovery/stats?period=week",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sleep-recovery",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week",
+                  "description": "day/week/month (default: week)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sleep Score",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/sleep-recovery/score?date=2026-01-25",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sleep-recovery",
+                "score"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25",
+                  "description": "date: Date to check (default: today)"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CALENDAR ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Month View",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/calendar/month?year=2026&month=1",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "month"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Daily Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/calendar/day?date=2026-01-25&filter=all",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "day"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-01-25",
+                  "description": "date: Date in YYYY-MM-DD format (default: today)"
+                },
+                {
+                  "key": "filter",
+                  "value": "all",
+                  "description": "filter: all/shift_cycle/on_shift/off_shift (default: all)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"eventType\": \"workout\",\r\n  \"eventId\": \"6975f49f305f53bc4ad97780\",\r\n  \"newTime\": \"19:00\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/calendar/reschedule",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "reschedule"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Upcoming Events",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"eventType\": \"workout\",\r\n  \"eventId\": \"6975f49f305f53bc4ad97780\",\r\n  \"newTime\": \"19:00\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/calendar/upcoming?days=7",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "upcoming"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Schedule Manually",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"date\": \"2026-01-25\",\r\n  \"dayType\": \"recovery\", //enum: ['work', 'rotation', 'recovery', 'off'],\r\n  \"shiftStart\": \"22:00\",\r\n  \"shiftEnd\": \"06:00\",\r\n  \"notes\": \"Extra recovery day\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/calendar/schedule",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "schedule"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/calendar/generate",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "generate"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Schedule Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/calendar/stats?startDate=2026-01-25&endDate=2026-01-31",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "calendar",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-25"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-01-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AI ENDPOINTS",
+      "item": [
+        {
+          "name": "Get AI Suggestions",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/suggestions?context=dashboard",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "suggestions"
+              ],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "dashboard",
+                  "description": "context: dashboard/workout/nutrition/sleep (default: dashboard)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sleep Tips",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/sleep-tips",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "sleep-tips"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Personalized Workout Plan (Premium)",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/workout-plan?goal=fat_loss&duration=week",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "workout-plan"
+              ],
+              "query": [
+                {
+                  "key": "goal",
+                  "value": "fat_loss",
+                  "description": "fat_loss/strength_building/maintenance"
+                },
+                {
+                  "key": "duration",
+                  "value": "week",
+                  "description": "week/month"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Nutrition Advice (Premium)",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/nutrition-advice",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "nutrition-advice"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Progress Insights (Premium)",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/progress-insights?period=week",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "progress-insights"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Chat with AI Fitness Coach (Premium)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"message\": \"What's a good workout for after a night shift?\",\r\n  \"context\": {\r\n    \"energyLevel\": \"low\",\r\n    \"timeAvailable\": 30\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/ai/chat",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "ai",
+                "chat"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SUBSCRIPTION ENDPOINTS",
+      "item": [
+        {
+          "name": "Get Subscription Plans",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/plans",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "plans"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Subscription",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Checkout Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"plan\": \"monthly\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/checkout",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "checkout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Portal Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"status\": \"success\",\r\n  \"data\": {\r\n    \"url\": \"https://billing.stripe.com/p/session/...\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/portal",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "portal"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Handle Subscription Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sessionId\": \"cs_test_123456789\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/success",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "success"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verify the session",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sessionId\": \"cs_test_123456789\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/verify-session/cs_test_a1jyaAIrQ1lqJNZfNJPrPX1vHwp9Y7prEaQvHwMHJppBsRRnNIClyv7J4L",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "verify-session",
+                "cs_test_a1jyaAIrQ1lqJNZfNJPrPX1vHwp9Y7prEaQvHwMHJppBsRRnNIClyv7J4L"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Premium Access",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"sessionId\": \"cs_test_123456789\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/subscription/check-access",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "subscription",
+                "check-access"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ADMIN ENDPOINTS",
+      "item": [
+        {
+          "name": "Update Subscription",
+          "item": [
+            {
+              "name": "Get all subscription plans",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscription-plans",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscription-plans"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Subscription plan",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"stripePriceId\": \"price_1StiA4EeCzTfvWZ673AQEYmZ\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscription-plans/6976ec5a5098d3ee8c27956e/stripe-price",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscription-plans",
+                    "6976ec5a5098d3ee8c27956e",
+                    "stripe-price"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscriptions/transactions?page=1&limit=20&period=month&status=active",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscriptions",
+                    "transactions"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "type": "text"
+                    },
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get all monthly plan transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscriptions/transactions?plan=monthly&limit=50",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscriptions",
+                    "transactions"
+                  ],
+                  "query": [
+                    {
+                      "key": "plan",
+                      "value": "monthly"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Transaction Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscriptions/transactions/TXN_6974ab8a3d38613870d8f156_1769253770339",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscriptions",
+                    "transactions",
+                    "TXN_6974ab8a3d38613870d8f156_1769253770339"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Revenue Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/revenue?period=month",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "revenue"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "month",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Monthly Revenue",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscriptions/stats/revenue?month=1&year=2026",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscriptions",
+                    "stats",
+                    "revenue"
+                  ],
+                  "query": [
+                    {
+                      "key": "month",
+                      "value": "1",
+                      "description": "Month number 1-12 (default: current month)"
+                    },
+                    {
+                      "key": "year",
+                      "value": "2026",
+                      "description": "Year (default: current year)"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Total Subscriptions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{BaseURL}}/admin/subscriptions/stats/total",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "subscriptions",
+                    "stats",
+                    "total"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Authtication",
+          "item": [
+            {
+              "name": "Admin Login",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Parse JSON safely\r",
+                      "let json;\r",
+                      "try {\r",
+                      "  json = pm.response.json();\r",
+                      "} catch (err) {\r",
+                      "  console.error(\"❌ Response is not valid JSON:\", pm.response.text());\r",
+                      "  pm.test(\"Response must be JSON\", () => pm.expect.fail(\"Response is not JSON\"));\r",
+                      "  return;\r",
+                      "}\r",
+                      "\r",
+                      "// Log response to console (for debugging)\r",
+                      "console.log(\"🔍 Login Response:\", json);\r",
+                      "\r",
+                      "// Extract token and user data (based on your actual structure)\r",
+                      "const accessToken = json.data?.token;\r",
+                      "const refreshToken = json.data?.refreshToken || null;\r",
+                      "const tokenType = 'Bearer'; // your API doesn’t return this, so we set manually\r",
+                      "const expiresIn = 3600; // default 1 hour expiry (adjust if backend sends real expiry)\r",
+                      "\r",
+                      "// If we got a token, save it\r",
+                      "if (accessToken) {\r",
+                      "  // Save into current environment\r",
+                      "  pm.environment.set(\"bearerToken\", accessToken);\r",
+                      "  pm.environment.set(\"tokenType\", tokenType);\r",
+                      "  if (refreshToken) pm.environment.set(\"refreshToken\", refreshToken);\r",
+                      "\r",
+                      "  // Optional: calculate token expiry timestamp\r",
+                      "  const expiry = Date.now() + expiresIn * 1000;\r",
+                      "  pm.environment.set(\"tokenExpiresAt\", expiry.toString());\r",
+                      "\r",
+                      "  // Log confirmation\r",
+                      "  console.log(\"✅ Saved bearerToken:\", accessToken);\r",
+                      "  console.log(\"✅ tokenType:\", tokenType);\r",
+                      "\r",
+                      "  // Test success\r",
+                      "  pm.test(\"Access token saved successfully\", () => {\r",
+                      "    pm.expect(accessToken).to.be.ok;\r",
+                      "  });\r",
+                      "} else {\r",
+                      "  console.error(\"❌ No token found in response\");\r",
+                      "  pm.test(\"Access token missing\", () => pm.expect.fail(\"Token missing in response\"));\r",
+                      "}\r",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{bearerToken}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{BaseURL}}/admin/login",
+                  "host": [
+                    "{{BaseURL}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Get Dashboard Stats",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/dashboard",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/users?page=1&limit=20&search=john&status=active",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "john",
+                  "description": "Search by name or email"
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": " active/inactive"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"startDate\": \"2026-01-25\",\r\n  \"endDate\": \"2026-01-31\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/users/6974ab8a3d38613870d8f156",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "6974ab8a3d38613870d8f156"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"isActive\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/users/6974ab8a3d38613870d8f156/status",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "6974ab8a3d38613870d8f156",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Workouts",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"isActive\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/workouts?page=1&limit=20&category=strength",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "workouts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "category",
+                  "value": "strength"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create System Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "0f2ba1f8-4e77-4ca2-8ac0-506404c34921"
+                },
+                {
+                  "key": "description",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "054dff9c-5ef2-4430-b715-b216cfc6c2b7"
+                },
+                {
+                  "key": "durationMinutes",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "804a8215-3243-4e93-9af0-bcd91fc9c921"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "cea06428-19ff-4744-aaf6-89059d845849"
+                },
+                {
+                  "key": "intensity",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "c3caee6e-26c8-4fa8-9feb-ef5a2064601f"
+                },
+                {
+                  "key": "exercises",
+                  "value": "[\n    {\n      \"name\": \"Squats\",\n      \"sets\": 4,\n      \"reps\": 8,\n      \"rest\": 90\n    }\n  ]",
+                  "type": "text",
+                  "uuid": "b24b0c29-d90c-41f7-ab82-4143423a9fb3"
+                },
+                {
+                  "key": "equipment",
+                  "value": "[\"barbell\"]",
+                  "type": "text",
+                  "uuid": "5d582853-265e-4279-83fd-098084c26730"
+                },
+                {
+                  "key": "tags",
+                  "value": "[\"full body\", \"strength\"]",
+                  "type": "text",
+                  "uuid": "1eb8cff1-1f48-4652-9fc0-7872927e92cc"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/workouts",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "workouts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recovery Activities",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "0f2ba1f8-4e77-4ca2-8ac0-506404c34921"
+                },
+                {
+                  "key": "description",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "054dff9c-5ef2-4430-b715-b216cfc6c2b7"
+                },
+                {
+                  "key": "durationMinutes",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "804a8215-3243-4e93-9af0-bcd91fc9c921"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "cea06428-19ff-4744-aaf6-89059d845849"
+                },
+                {
+                  "key": "intensity",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "c3caee6e-26c8-4fa8-9feb-ef5a2064601f"
+                },
+                {
+                  "key": "exercises",
+                  "value": "[\n    {\n      \"name\": \"Squats\",\n      \"sets\": 4,\n      \"reps\": 8,\n      \"rest\": 90\n    }\n  ]",
+                  "type": "text",
+                  "uuid": "b24b0c29-d90c-41f7-ab82-4143423a9fb3"
+                },
+                {
+                  "key": "equipment",
+                  "value": "[\"barbell\"]",
+                  "type": "text",
+                  "uuid": "5d582853-265e-4279-83fd-098084c26730"
+                },
+                {
+                  "key": "tags",
+                  "value": "[\"full body\", \"strength\"]",
+                  "type": "text",
+                  "uuid": "1eb8cff1-1f48-4652-9fc0-7872927e92cc"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/recovery-activities?page=1&limit=20",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "recovery-activities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Foods",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "0f2ba1f8-4e77-4ca2-8ac0-506404c34921"
+                },
+                {
+                  "key": "description",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "054dff9c-5ef2-4430-b715-b216cfc6c2b7"
+                },
+                {
+                  "key": "durationMinutes",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "804a8215-3243-4e93-9af0-bcd91fc9c921"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "cea06428-19ff-4744-aaf6-89059d845849"
+                },
+                {
+                  "key": "intensity",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "c3caee6e-26c8-4fa8-9feb-ef5a2064601f"
+                },
+                {
+                  "key": "exercises",
+                  "value": "[\n    {\n      \"name\": \"Squats\",\n      \"sets\": 4,\n      \"reps\": 8,\n      \"rest\": 90\n    }\n  ]",
+                  "type": "text",
+                  "uuid": "b24b0c29-d90c-41f7-ab82-4143423a9fb3"
+                },
+                {
+                  "key": "equipment",
+                  "value": "[\"barbell\"]",
+                  "type": "text",
+                  "uuid": "5d582853-265e-4279-83fd-098084c26730"
+                },
+                {
+                  "key": "tags",
+                  "value": "[\"full body\", \"strength\"]",
+                  "type": "text",
+                  "uuid": "1eb8cff1-1f48-4652-9fc0-7872927e92cc"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/foods?page=1&limit=20&source=usda",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "foods"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "source",
+                  "value": "usda"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Import Foods from USDA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"chicken breast\",\r\n  \"limit\": 5\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/foods/import",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "foods",
+                "import"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Revenue Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/revenue?period=month",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics Overview",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/analytics/overview",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "analytics",
+                "overview"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Usage Statistics",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/analytics/usage?startDate=2024-01-01&endDate=2024-01-20",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "analytics",
+                "usage"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-01-20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get System Settings",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@bootble.com\",\r\n  \"password\": \"Admin@123\"\r\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/settings",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update System Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"maintenanceMode\": true,\r\n  \"registrationEnabled\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/admin/settings",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notification",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications?page=1&limit=20",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "read",
+                  "value": "false",
+                  "description": "Filter by read status (true/false)",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "SUBSCRIPTION",
+                  "description": "Filter by type: SUBSCRIPTION, WORKOUT, MEAL, REMINDER, ACHIEVEMENT, SYSTEM, SLEEP_RECOVERY, AI_INSIGHT, CALENDAR, ADMIN",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "HIGH",
+                  "description": "Filter by priority: LOW, MEDIUM, HIGH, URGENT",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user's notifications with pagination and optional filters.\n\n**Query Parameters:**\n- `page` - Page number (default: 1)\n- `limit` - Items per page (default: 20, max: 100)\n- `read` - Filter by read status (true/false)\n- `type` - Filter by notification type\n- `priority` - Filter by priority level\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notifications\": [...],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 20,\n      \"total\": 50,\n      \"pages\": 3\n    }\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/unread/count",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "unread",
+                "count"
+              ],
+              "query": [
+                {
+                  "key": "",
+                  "value": "Bearer {{bearerToken}}",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get the count of unread notifications for the authenticated user.\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"count\": 5\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notification by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/697f7dab034a30f6368bb613",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "697f7dab034a30f6368bb613"
+              ]
+            },
+            "description": "Get a specific notification by ID.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notification\": {\n      \"_id\": \"65f123...\",\n      \"user\": \"65f456...\",\n      \"type\": \"SUBSCRIPTION\",\n      \"title\": \"Subscription Activated\",\n      \"message\": \"Your Premium subscription is now active!\",\n      \"data\": {},\n      \"priority\": \"MEDIUM\",\n      \"read\": false,\n      \"actionUrl\": \"/subscription\",\n      \"icon\": \"🎉\",\n      \"createdAt\": \"2026-02-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-02-01T10:00:00.000Z\"\n    }\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/read-all",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Mark all notifications as read for the authenticated user.\n\n**Real-time Event:** Emits `all_notifications_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"All notifications marked as read\",\n  \"data\": {\n    \"modifiedCount\": 15\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "",
+                "value": "",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/697f7dab034a30f6368bb613/read",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "697f7dab034a30f6368bb613",
+                "read"
+              ],
+              "query": [
+                {
+                  "key": "Bearer {{bearerToken}}",
+                  "value": null,
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Mark a specific notification as read.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Real-time Event:** Emits `notification_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"notification\": {\n      \"_id\": \"65f123...\",\n      \"read\": true,\n      \"readAt\": \"2026-02-01T10:30:00.000Z\",\n      ...\n    }\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Many as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationIds\": [\n    \"65f123abc456...\",\n    \"65f123abc789...\",\n    \"65f123abcdef...\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{BaseURL}}/notifications/read-many",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "read-many"
+              ],
+              "query": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{bearerToken}}",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Mark multiple notifications as read.\n\n**Request Body:**\n```json\n{\n  \"notificationIds\": [\"id1\", \"id2\", \"id3\"]\n}\n```\n\n**Real-time Event:** Emits `notifications_read` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Notifications marked as read\",\n  \"data\": {\n    \"modifiedCount\": 3\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/697f7dab034a30f6368bb613",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "697f7dab034a30f6368bb613"
+              ]
+            },
+            "description": "Delete a specific notification.\n\n**Path Parameters:**\n- `id` - Notification ID\n\n**Real-time Event:** Emits `notification_deleted` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"Notification deleted successfully\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete All Read Notifications",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{BaseURL}}/notifications/read",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "notifications",
+                "read"
+              ]
+            },
+            "description": "Delete all read notifications for the authenticated user.\n\n**Real-time Event:** Emits `read_notifications_deleted` event via Socket.IO\n\n**Response:**\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"All read notifications deleted\",\n  \"data\": {\n    \"deletedCount\": 10\n  }\n}\n```"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

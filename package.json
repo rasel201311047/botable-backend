@@ -1,0 +1,79 @@
+{
+  "name": "bootbale-modderforker",
+  "version": "2.0.0",
+  "description": "A robust and scalable Node.js backend for the Bootbale-Modderforker Health Tracking Application. Features include secure user authentication, health metrics monitoring, AI-driven insights via OpenAI, real-time updates with Socket.io, and seamless media processing with FFmpeg and Cloudinary.",
+  "keywords": [
+    "health-tracker",
+    "fitness-app-backend",
+    "nodejs",
+    "expressjs",
+    "mongodb",
+    "mongoose",
+    "rest-api",
+    "jwt-authentication",
+    "openai-integration",
+    "ffmpeg-processing",
+    "socket-io-realtime",
+    "cloudinary-storage",
+    "stripe-payments",
+    "healthcare-it",
+    "mjs-backend"
+  ],
+  "author": {
+    "name": "Khaled Siddique",
+    "email": "khaledssbd@gmail.com",
+    "url": "https://khaled-siddique.vercel.app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sparktechagency/bootbale-modderforker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sparktechagency/bootbale-modderforker/issues"
+  },
+  "homepage": "https://github.com/sparktechagency/bootbale-modderforker#readme",
+  "license": "ISC",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "setup": "node scripts/setup.js",
+    "test": "jest",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "typecheck": "node scripts/typecheck.js"
+  },
+  "dependencies": {
+    "axios": "^1.16.1",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.2",
+    "morgan": "^1.10.1",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.7",
+    "openai": "^6.37.0",
+    "socket.io": "^4.8.3",
+    "stripe": "^22.1.1",
+    "validator": "^13.15.35",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
+  }
+}

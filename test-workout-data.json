@@ -1,0 +1,18 @@
+{
+  "title": "System Strength Workout",
+  "description": "Full body strength training",
+  "durationMinutes": 60,
+  "category": "strength",
+  "intensity": "high",
+  "exercises": [
+    {
+      "name": "Squats",
+      "sets": 4,
+      "reps": 8,
+      "rest": 90
+    }
+  ],
+  "equipment": ["barbell"],
+  "tags": ["full body", "strength"],
+  "isPublic": true
+}

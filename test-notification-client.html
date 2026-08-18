@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notification System Test Client</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.disconnected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .panel h2 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+    }
+
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+    }
+
+    .btn-success {
+      background: #28a745;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    #notifications {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .notification {
+      background: #f8f9fa;
+      border-left: 4px solid #007bff;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .notification.unread {
+      background: #e7f3ff;
+    }
+
+    .notification.URGENT {
+      border-left-color: #dc3545;
+    }
+
+    .notification.HIGH {
+      border-left-color: #ff6b6b;
+    }
+
+    .notification.MEDIUM {
+      border-left-color: #007bff;
+    }
+
+    .notification.LOW {
+      border-left-color: #6c757d;
+    }
+
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+
+    .notification-title {
+      font-weight: 600;
+      color: #333;
+      font-size: 15px;
+    }
+
+    .notification-time {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .notification-message {
+      color: #555;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .notification-type {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #007bff;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #dc3545;
+      color: white;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    #events {
+      max-height: 300px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .event {
+      padding: 5px;
+      margin-bottom: 5px;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .event-time {
+      color: #6c757d;
+      margin-right: 10px;
+    }
+
+    .event-type {
+      font-weight: 600;
+      color: #007bff;
+      margin-right: 10px;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .button-group button {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Notification System Test Client</h1>
+      <div>
+        <span class="status" id="status">disconnected</span>
+        <span class="badge" id="unreadCount">0</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Connection Panel -->
+      <div class="panel">
+        <h2>🔌 Connection</h2>
+        <div class="form-group">
+          <label>Server URL</label>
+          <input type="text" id="serverUrl" value="http://localhost:5000" />
+        </div>
+        <div class="form-group">
+          <label>JWT Token</label>
+          <input type="password" id="token" placeholder="Your JWT token here" />
+        </div>
+        <div class="button-group">
+          <button id="connectBtn" class="btn-success">Connect</button>
+          <button id="disconnectBtn" class="btn-danger" disabled>Disconnect</button>
+        </div>
+        <div id="connectionMessage"></div>
+      </div>
+
+      <!-- Test Notifications Panel -->
+      <div class="panel">
+        <h2>🧪 Send Test Notification</h2>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="testType">
+            <option value="SYSTEM">SYSTEM</option>
+            <option value="SUBSCRIPTION">SUBSCRIPTION</option>
+            <option value="WORKOUT">WORKOUT</option>
+            <option value="MEAL">MEAL</option>
+            <option value="ACHIEVEMENT">ACHIEVEMENT</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="testTitle" value="Test Notification" />
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="testMessage">This is a test notification from the test client</textarea>
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="testPriority">
+            <option value="LOW">LOW</option>
+            <option value="MEDIUM" selected>MEDIUM</option>
+            <option value="HIGH">HIGH</option>
+            <option value="URGENT">URGENT</option>
+          </select>
+        </div>
+        <button id="sendTestBtn" disabled>Send Test Notification</button>
+        <div id="testMessage"></div>
+      </div>
+
+      <!-- Notifications Display -->
+      <div class="panel" style="grid-column: 1 / -1;">
+        <h2>📬 Received Notifications</h2>
+        <div class="button-group">
+          <button id="fetchBtn" class="btn-secondary" disabled>Fetch All</button>
+          <button id="markAllReadBtn" class="btn-secondary" disabled>Mark All Read</button>
+          <button id="clearBtn" class="btn-danger" disabled>Clear Display</button>
+        </div>
+        <div id="notifications"></div>
+      </div>
+
+      <!-- Events Log -->
+      <div class="panel" style="grid-column: 1 / -1;">
+        <h2>📊 Socket.IO Events Log</h2>
+        <button id="clearEventsBtn" class="btn-secondary">Clear Log</button>
+        <div id="events"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    let notifications = [];
+
+    const elements = {
+      status: document.getElementById('status'),
+      serverUrl: document.getElementById('serverUrl'),
+      token: document.getElementById('token'),
+      connectBtn: document.getElementById('connectBtn'),
+      disconnectBtn: document.getElementById('disconnectBtn'),
+      connectionMessage: document.getElementById('connectionMessage'),
+      sendTestBtn: document.getElementById('sendTestBtn'),
+      fetchBtn: document.getElementById('fetchBtn'),
+      markAllReadBtn: document.getElementById('markAllReadBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      notifications: document.getElementById('notifications'),
+      events: document.getElementById('events'),
+      unreadCount: document.getElementById('unreadCount')
+    };
+
+    // Connect to Socket.IO
+    elements.connectBtn.addEventListener('click', () => {
+      const serverUrl = elements.serverUrl.value;
+      const token = elements.token.value;
+
+      if (!token) {
+        showMessage('connectionMessage', 'Please enter a JWT token', 'error');
+        return;
+      }
+
+      socket = io(serverUrl, {
+        auth: { token },
+        transports: ['websocket', 'polling']
+      });
+
+      socket.on('connect', () => {
+        updateStatus(true);
+        logEvent('connect', 'Connected to server');
+        showMessage('connectionMessage', 'Connected successfully!', 'success');
+        elements.sendTestBtn.disabled = false;
+        elements.fetchBtn.disabled = false;
+        elements.markAllReadBtn.disabled = false;
+        elements.clearBtn.disabled = false;
+        fetchUnreadCount();
+      });
+
+      socket.on('disconnect', () => {
+        updateStatus(false);
+        logEvent('disconnect', 'Disconnected from server');
+      });
+
+      socket.on('notification', (data) => {
+        logEvent('notification', JSON.stringify(data));
+        addNotification(data);
+        updateUnreadCount(+1);
+      });
+
+      socket.on('notification_read', (data) => {
+        logEvent('notification_read', JSON.stringify(data));
+      });
+
+      socket.on('all_notifications_read', (data) => {
+        logEvent('all_notifications_read', JSON.stringify(data));
+        updateUnreadCount(-data.count);
+      });
+
+      socket.on('notifications_read', (data) => {
+        logEvent('notifications_read', JSON.stringify(data));
+      });
+
+      socket.on('notification_deleted', (data) => {
+        logEvent('notification_deleted', JSON.stringify(data));
+      });
+
+      socket.on('connect_error', (error) => {
+        logEvent('error', error.message);
+        showMessage('connectionMessage', `Connection error: ${error.message}`, 'error');
+      });
+    });
+
+    // Disconnect
+    elements.disconnectBtn.addEventListener('click', () => {
+      if (socket) {
+        socket.close();
+        socket = null;
+        updateStatus(false);
+        elements.sendTestBtn.disabled = true;
+        elements.fetchBtn.disabled = true;
+        elements.markAllReadBtn.disabled = true;
+        elements.clearBtn.disabled = true;
+      }
+    });
+
+    // Send test notification
+    elements.sendTestBtn.addEventListener('click', async () => {
+      const token = elements.token.value;
+      const data = {
+        type: document.getElementById('testType').value,
+        title: document.getElementById('testTitle').value,
+        message: document.getElementById('testMessage').value,
+        priority: document.getElementById('testPriority').value
+      };
+
+      try {
+        const response = await fetch(`${elements.serverUrl.value}/api/notifications/test`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+          showMessage('testMessage', 'Test notification sent!', 'success');
+        } else {
+          showMessage('testMessage', `Error: ${result.message}`, 'error');
+        }
+      } catch (error) {
+        showMessage('testMessage', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Fetch all notifications
+    elements.fetchBtn.addEventListener('click', async () => {
+      const token = elements.token.value;
+      try {
+        const response = await fetch(`${elements.serverUrl.value}/api/notifications?limit=50`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+          notifications = result.data.notifications;
+          displayNotifications();
+        }
+      } catch (error) {
+        logEvent('error', `Fetch error: ${error.message}`);
+      }
+    });
+
+    // Mark all as read
+    elements.markAllReadBtn.addEventListener('click', async () => {
+      const token = elements.token.value;
+      try {
+        const response = await fetch(`${elements.serverUrl.value}/api/notifications/read-all`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          logEvent('success', 'All notifications marked as read');
+          elements.unreadCount.textContent = '0';
+        }
+      } catch (error) {
+        logEvent('error', `Mark all read error: ${error.message}`);
+      }
+    });
+
+    // Clear display
+    elements.clearBtn.addEventListener('click', () => {
+      notifications = [];
+      displayNotifications();
+    });
+
+    // Clear events
+    document.getElementById('clearEventsBtn').addEventListener('click', () => {
+      elements.events.innerHTML = '';
+    });
+
+    // Fetch unread count
+    async function fetchUnreadCount() {
+      const token = elements.token.value;
+      try {
+        const response = await fetch(`${elements.serverUrl.value}/api/notifications/unread/count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+          elements.unreadCount.textContent = result.data.count;
+        }
+      } catch (error) {
+        console.error('Fetch unread count error:', error);
+      }
+    }
+
+    // Helper functions
+    function updateStatus(connected) {
+      elements.status.textContent = connected ? 'connected' : 'disconnected';
+      elements.status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+      elements.connectBtn.disabled = connected;
+      elements.disconnectBtn.disabled = !connected;
+    }
+
+    function logEvent(type, message) {
+      const time = new Date().toLocaleTimeString();
+      const event = document.createElement('div');
+      event.className = 'event';
+      event.innerHTML = `<span class="event-time">[${time}]</span><span class="event-type">${type}</span>${message}`;
+      elements.events.insertBefore(event, elements.events.firstChild);
+    }
+
+    function addNotification(notification) {
+      notifications.unshift(notification);
+      displayNotifications();
+    }
+
+    function displayNotifications() {
+      elements.notifications.innerHTML = notifications.map(n => `
+        <div class="notification ${n.read ? '' : 'unread'} ${n.priority}">
+          <div class="notification-header">
+            <div>
+              <div class="notification-title">${n.icon || '🔔'} ${n.title}</div>
+              <span class="notification-type">${n.type}</span>
+            </div>
+            <div class="notification-time">${new Date(n.createdAt || n.timestamp).toLocaleString()}</div>
+          </div>
+          <div class="notification-message">${n.message}</div>
+          ${n.actionUrl ? `<div style="color: #007bff; font-size: 12px;">→ ${n.actionUrl}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function updateUnreadCount(delta) {
+      const current = parseInt(elements.unreadCount.textContent);
+      const newCount = Math.max(0, current + delta);
+      elements.unreadCount.textContent = newCount;
+    }
+
+    function showMessage(elementId, message, type) {
+      const element = document.getElementById(elementId);
+      element.className = type;
+      element.textContent = message;
+      setTimeout(() => {
+        element.textContent = '';
+        element.className = '';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
