@@ -36,8 +36,8 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node api.js && node index.js",
+    "dev": "node api.js && nodemon index.js",
     "setup": "node scripts/setup.js",
     "test": "jest",
     "lint": "eslint . --ext .js",
