@@ -30,3 +30,4 @@ bun.lock
 yarn.lock
 branch_structure.json
 .gitignore
+service-account.json
