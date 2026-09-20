@@ -197,6 +197,19 @@ const userSchema = new mongoose.Schema(
             endDate: {
                 type: Date,
             },
+            provider: {
+                type: String,
+                enum: ['free', 'stripe', 'google_play', 'apple_store', null],
+                default: 'free',
+            },
+            purchaseToken: {
+                type: String,
+                default: null,
+            },
+            orderId: {
+                type: String,
+                default: null,
+            },
             stripeCustomerId: String,
             stripeSubscriptionId: String,
         },

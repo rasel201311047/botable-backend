@@ -10,6 +10,7 @@ const {
   cancelSubscription,
 } = require('../../config/stripe');
 const logger = require('../../utils/logger');
+const { google } = require('googleapis');
 
 class SubscriptionService {
   /**
@@ -521,6 +522,102 @@ class SubscriptionService {
       return [];
     }
   }
+
+  /**
+   * Verify Google Play In-App Purchase Subscription
+   */
+  static async verifyGoogleSubscription(userId, { productIdentifier, purchaseToken }) {
+    if (!purchaseToken) {
+      throw new Error('purchaseToken is required');
+    }
+
+    // ১. টোকেনটি অন্য কোনো ইউজার আগেই ব্যবহার করেছে কি না চেক করা
+    const existingTokenUser = await User.findOne({
+      'subscription.purchaseToken': purchaseToken,
+      _id: { $ne: userId },
+    });
+
+    if (existingTokenUser) {
+      const error = new Error('This purchase token is already linked to another account');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ২. Google Auth ও API ক্লায়েন্ট সেটআপ
+    const auth = new google.auth.GoogleAuth({
+      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || 'service-account.json',
+      scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+    });
+
+    const androidpublisher = google.androidpublisher({ version: 'v3', auth });
+    const packageName = process.env.ANDROID_PACKAGE_NAME || 'com.anonymous.bootble_v2';
+
+    // ৩. গুগল সার্ভার থেকে Subscriptions v2 এপিআই দিয়ে পারচেজ ভেরিফাই করা
+    const result = await androidpublisher.purchases.subscriptionsv2.get({
+      packageName,
+      token: purchaseToken,
+    });
+
+    const data = result.data;
+    logger.info(`Google Play Subscription response: ${JSON.stringify(data)}`);
+
+    // subscriptionState চেক করা (SUBSCRIPTION_STATE_ACTIVE or SUBSCRIPTION_STATE_IN_GRACE_PERIOD)
+    const validStates = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD'];
+    if (data.subscriptionState && !validStates.includes(data.subscriptionState)) {
+      const error = new Error(`Subscription state is not active (${data.subscriptionState})`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const lineItem = data.lineItems?.[0] || {};
+    const actualProductId = lineItem.productId || productIdentifier || 'monthly';
+    const expiryDate = lineItem.expiryTime ? new Date(lineItem.expiryTime) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const orderId = data.latestOrderId || productIdentifier || null;
+
+    // ৪. Acknowledge করা (যদি পেন্ডিং থাকে)
+    if (data.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING' || data.acknowledgementState === 0) {
+      try {
+        await androidpublisher.purchases.subscriptions.acknowledge({
+          packageName,
+          subscriptionId: actualProductId,
+          token: purchaseToken,
+          requestBody: {},
+        });
+      } catch (ackError) {
+        logger.warn(`Google subscription acknowledge notice: ${ackError.message}`);
+      }
+    }
+
+    // ৫. ইউজারের ডাটাবেজ আপডেট করা
+    const planType = actualProductId.toLowerCase().includes('year') ? 'yearly' : 'monthly';
+    const startDate = data.startTime ? new Date(data.startTime) : new Date();
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          'subscription.plan': planType,
+          'subscription.isActive': true,
+          'subscription.status': 'active',
+          'subscription.startDate': startDate,
+          'subscription.endDate': expiryDate,
+          'subscription.provider': 'google_play',
+          'subscription.purchaseToken': purchaseToken,
+          'subscription.orderId': orderId,
+        },
+      },
+      { new: true }
+    );
+
+    return {
+      plan: updatedUser.subscription.plan,
+      status: updatedUser.subscription.status,
+      endDate: updatedUser.subscription.endDate,
+      productId: actualProductId,
+      orderId,
+    };
+  }
+
 }
 
 module.exports = SubscriptionService;
