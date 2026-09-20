@@ -17,5 +17,7 @@ router.get('/check-access', protect, SubscriptionController.checkPremiumAccess);
 
 // Webhook (raw body needed for Stripe)
 router.post('/webhook', express.raw({ type: 'application/json' }), SubscriptionController.webhookHandler);
+// Protected routes
+router.post('/google/verify', protect, SubscriptionController.verifyGoogleSubscription);
 
 module.exports = router;
