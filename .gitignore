@@ -14,6 +14,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+temp_auto_push.bat
 *.local
 # Editor directories and files
 .idea
@@ -23,10 +24,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env
 package-lock.json
 pnpm-lock.yaml
 bun.lock
 yarn.lock
 branch_structure.json
 .gitignore
+service-account.json
+config.bat
