@@ -210,6 +210,29 @@ class SubscriptionController {
       next(error);
     }
   }
+
+
+  /**
+   * @desc    Verify Google Play in-app purchase
+   * @route   POST /api/subscription/google/verify
+   * @access  Private
+   */
+  static async verifyGoogleSubscription(req, res, next) {
+    try {
+      const { productIdentifier, purchaseToken } = req.body;
+      const result = await SubscriptionService.verifyGoogleSubscription(
+        req.user.id,
+        { productIdentifier, purchaseToken }
+      );
+      res.status(200).json({
+        status: 'success',
+        message: 'Google Play subscription verified successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = SubscriptionController;
