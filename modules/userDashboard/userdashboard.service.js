@@ -1,10 +1,11 @@
 const User = require('../user/user.model');
 const DailyNutritionSummary = require('../../nutrition/dailyNutritionSummary.model');
-const NutritionTarget = require('../../nutrition/nutritionTarget.model');
+const { getUserTargets } = require('../../utils/nutritionTargets');
 const SleepLog = require('../sleep-recovery/sleepLog.model');
 const WorkoutLog = require('../workout/workoutLog.model');
 const Meal = require('../nutrition/meal.model');
 const Shift = require('../onboarding/shift.model');
+const { getDayTotals } = require('../../utils/dailyNutrition');
 const mongoose = require('mongoose');
 const {
   calculateSleepScore,
@@ -47,14 +48,12 @@ class DashboardService {
         shiftInfo = await Shift.findOne({ name: user.shiftType });
       }
 
-      // Step 3: Get nutrition data for today
-      const nutrition = await DailyNutritionSummary.findOne({
-        userId,
-        date: { $gte: today, $lt: tomorrow }
-      });
+      // Step 3: Get nutrition totals for today, computed from the logged meals
+      // (same source the AI tools use, so every screen shows the same numbers)
+      const nutrition = await getDayTotals(userId, today);
 
       // Step 4: Get nutrition targets
-      const targets = await NutritionTarget.findOne({ userId });
+      const targets = await getUserTargets(userId);
 
       // Step 5: Get sleep logs for today
       const sleepLogs = await SleepLog.find({
@@ -69,13 +68,14 @@ class DashboardService {
         completed: true
       });
 
-      // Step 7: Get recent meals (last 3)
+      // Step 7: Get recent meals for the "All Nutrition" list - across previous days too,
+      // newest first, logged meals only (not scheduled / suggested / skipped ones)
       const recentMeals = await Meal.find({
         userId,
-        date: { $gte: today, $lt: tomorrow }
+        status: { $nin: ['suggested', 'scheduled', 'skipped', 'expired', 'rescheduled'] }
       })
-      .sort({ createdAt: -1 })
-      .limit(3);
+      .sort({ loggedAt: -1, createdAt: -1 })
+      .limit(20);
 
       // Step 8: Calculate sleep data
       const sleepData = this.calculateSleepData(sleepLogs);
@@ -220,6 +220,12 @@ class DashboardService {
         protein: 0,
         carbs: 0,
         fat: 0,
+        targets: {
+          calories: targets?.calorieTarget || 0,
+          protein: targets?.proteinTarget || 0,
+          carbs: targets?.carbTarget || 0,
+          fat: targets?.fatTarget || 0
+        },
         progress: {
           calories: 0,
           protein: 0,
@@ -254,6 +260,12 @@ class DashboardService {
       protein: nutrition.protein,
       carbs: nutrition.carbs,
       fat: nutrition.fat,
+      targets: {
+        calories: targets?.calorieTarget || 0,
+        protein: targets?.proteinTarget || 0,
+        carbs: targets?.carbTarget || 0,
+        fat: targets?.fatTarget || 0
+      },
       progress,
       remaining,
       mealCount: nutrition.mealCount

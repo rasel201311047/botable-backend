@@ -21,6 +21,7 @@ SubscriptionService.initializeDefaultPlans().catch(err => {
 
 // Import middleware
 const errorMiddleware = require('./middlewares/error.middleware');
+const { time12hMiddleware } = require('./middlewares/time12h.middleware');
 
 // Import routes
 const authRoutes = require('./modules/auth/auth.routes');
@@ -151,12 +152,13 @@ app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/sleep-recovery', sleepRecoveryRoutes);
 app.use('/api/workouts', workoutRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/calendar', calendarRoutes);
-app.use('/api/engine', engineRoutes);
-app.use('/api/ai', aiRoutes);
+// Read-only / insight endpoints: human-readable text is returned with a 12-hour clock
+app.use('/api/dashboard', time12hMiddleware, dashboardRoutes);
+app.use('/api/calendar', time12hMiddleware, calendarRoutes);
+app.use('/api/engine', time12hMiddleware, engineRoutes);
+app.use('/api/ai', time12hMiddleware, aiRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use('/api/notifications', time12hMiddleware, notificationRoutes);
 app.use('/api', contentRoutes);
 // Admin Routes
 app.use('/api/admin', adminRoutes);

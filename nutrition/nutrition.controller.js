@@ -537,19 +537,38 @@ class NutritionController {
    */
   static async getNutritionTargets(req, res, next) {
     try {
-      const NutritionTarget = require('./nutritionTarget.model');
-      const targets = await NutritionTarget.findOne({ userId: req.user.id });
+      const { describeTargets } = require('../utils/nutritionTargets');
+      const { targets, meta } = await describeTargets(req.user.id);
 
-      if (!targets) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'Nutrition targets not found. Please complete onboarding.',
-        });
-      }
-
+      // `data` is null (not a 404) when the profile is still too incomplete to generate targets;
+      // `meta.missing` tells the app which fields to ask for.
       res.status(200).json({
         status: 'success',
         data: targets,
+        meta,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * @desc    (Re)generate this user's targets from their current age, gender, height, weight and
+   *          goal (AI, validated, formula fallback) and store them
+   * @route   POST /api/nutrition/targets/regenerate
+   * @access  Private
+   */
+  static async regenerateNutritionTargets(req, res, next) {
+    try {
+      const { generateTargets, describeTargets } = require('../utils/nutritionTargets');
+      await generateTargets(req.user.id, { strict: true, allowAI: true });
+      const { targets, meta } = await describeTargets(req.user.id);
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Nutrition targets regenerated',
+        data: targets,
+        meta,
       });
     } catch (error) {
       next(error);
@@ -564,12 +583,28 @@ class NutritionController {
   static async updateNutritionTargets(req, res, next) {
     try {
       const NutritionTarget = require('./nutritionTarget.model');
-      const updateData = req.body;
+      const User = require('../modules/user/user.model');
+      const { profileInputs } = require('../utils/nutritionTargets');
 
+      // Only the four target numbers can be edited by hand
+      const updateData = {};
+      ['calorieTarget', 'proteinTarget', 'carbTarget', 'fatTarget'].forEach(key => {
+        if (req.body[key] !== undefined) updateData[key] = Number(req.body[key]);
+      });
+
+      const user = await User.findById(req.user.id).select('age gender height weight goalType');
       const targets = await NutritionTarget.findOneAndUpdate(
         { userId: req.user.id },
-        { ...updateData, lastUpdated: new Date() },
-        { returnDocument: 'after', upsert: true, runValidators: true },
+        {
+          ...updateData,
+          // hand-edited targets are never replaced automatically
+          source: 'custom',
+          isCustom: true,
+          inputs: { ...profileInputs(user), assumed: [] },
+          generatedAt: new Date(),
+          lastUpdated: new Date(),
+        },
+        { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true },
       );
 
       res.status(200).json({

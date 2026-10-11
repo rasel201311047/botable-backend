@@ -271,8 +271,8 @@ class ReminderJob {
    */
   static async getNutritionTarget(userId) {
     try {
-      const NutritionTarget = require('../nutrition/nutritionTarget.model');
-      return await NutritionTarget.findOne({ userId });
+      const { getUserTargets } = require('../utils/nutritionTargets');
+      return await getUserTargets(userId);
     } catch (error) {
       logger.error(`Get nutrition target error: ${error.message}`);
       return null;

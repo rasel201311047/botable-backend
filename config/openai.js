@@ -6,7 +6,9 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  // The SDK throws at construction when the key is missing; every caller checks
+  // process.env.OPENAI_API_KEY first, so use a placeholder to let the server boot with fallbacks.
+  apiKey: process.env.OPENAI_API_KEY || 'not-configured',
 });
 
 /**

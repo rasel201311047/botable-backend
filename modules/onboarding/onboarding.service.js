@@ -65,8 +65,8 @@ class OnboardingService {
       );
 
       // System-wide re-initialization
-      // 1. Recalculate basic nutrition timing & targets based on new circadian schedule
-      await WellnessEngine.recalculateNutritionTargets(userId);
+      // (Nutrition targets depend only on age, gender, height, weight and goal - not on the shift -
+      // so a shift change does not touch them.)
 
       // 2. Clear out any future, uncompleted dynamically scheduled items so they don't leak into the new schedule
       const today = new Date();
@@ -78,10 +78,14 @@ class OnboardingService {
         completed: false
       });
 
+      // Only clear meals that were planned but NOT eaten. (The old filter `status != 'completed'`
+      // matched every meal - 'completed' is not a valid meal status - so changing shift / goal
+      // wiped today's logged meals.)
       await Meal.deleteMany({
         userId,
         date: { $gte: today },
-        status: { $ne: 'completed' }
+        status: { $in: ['scheduled', 'suggested', 'rescheduled'] },
+        isLogged: { $ne: true }
       });
 
       // 3. Force calendar regeneration
@@ -145,10 +149,14 @@ class OnboardingService {
         completed: false
       });
 
+      // Only clear meals that were planned but NOT eaten. (The old filter `status != 'completed'`
+      // matched every meal - 'completed' is not a valid meal status - so changing shift / goal
+      // wiped today's logged meals.)
       await Meal.deleteMany({
         userId,
         date: { $gte: today },
-        status: { $ne: 'completed' }
+        status: { $in: ['scheduled', 'suggested', 'rescheduled'] },
+        isLogged: { $ne: true }
       });
 
       await CalendarService.generateSchedule(

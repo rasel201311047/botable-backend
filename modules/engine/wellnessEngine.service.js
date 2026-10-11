@@ -1,8 +1,8 @@
 const User = require('../user/user.model');
 const Shift = require('../onboarding/shift.model');
 const Goal = require('../onboarding/goal.model');
-const NutritionTarget = require('../../nutrition/nutritionTarget.model');
-const DailyNutritionSummary = require('../../nutrition/dailyNutritionSummary.model');
+const { getUserTargets, generateTargets } = require('../../utils/nutritionTargets');
+const { getDayTotals } = require('../../utils/dailyNutrition');
 const WorkoutLog = require('../workout/workoutLog.model');
 const SleepLog = require('../sleep-recovery/sleepLog.model');
 const UserShiftSchedule = require('../calendar/calendar.model');
@@ -62,8 +62,9 @@ class WellnessEngine {
         User.findById(userId).select('-password'),
         User.findById(userId).then(async u => (u?.shiftType ? Shift.findOne({ name: u.shiftType }) : null)),
         User.findById(userId).then(async u => (u?.goalType ? Goal.findOne({ name: u.goalType }) : null)),
-        NutritionTarget.findOne({ userId }),
-        DailyNutritionSummary.findOne({ userId, date: { $gte: today, $lt: tomorrow } }),
+        getUserTargets(userId),
+        // Totals come from the logged meals (same source as the home card and the AI tools)
+        getDayTotals(userId, today).then(totals => (totals.mealCount > 0 ? totals : null)),
         WorkoutLog.find({ userId, date: { $gte: today, $lt: tomorrow }, completed: true }).populate(
           'workoutId',
           'title category durationMinutes intensity',
@@ -186,25 +187,9 @@ class WellnessEngine {
   }
 
   static async recalculateNutritionTargets(userId) {
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const targets = calculateNutritionTargets({
-      goalType: user.goalType,
-      shiftType: user.shiftType,
-      height: user.height || 170,
-      weight: user.weight || 70,
-      age: user.age || 30,
-      gender: user.gender || 'male',
-    });
-
-    return NutritionTarget.findOneAndUpdate(
-      { userId },
-      { ...targets, lastUpdated: new Date() },
-      { upsert: true, returnDocument: 'after', runValidators: true },
-    );
+    // Automatic path (onboarding / goal change): AI-generated when possible, neutral defaults for
+    // profile fields that are still empty. The explicit "Regenerate" button is strict instead.
+    return generateTargets(userId, { strict: false, allowAI: true });
   }
 
   static async syncShiftTask(userId, payload = {}) {

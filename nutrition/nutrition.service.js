@@ -1,7 +1,7 @@
 const Food = require('../modules/nutrition/food.model');
 const Meal = require('../modules/nutrition/meal.model');
 const DailyNutritionSummary = require('./dailyNutritionSummary.model');
-const NutritionTarget = require('./nutritionTarget.model');
+const { getUserTargets } = require('../utils/nutritionTargets');
 const User = require('../modules/user/user.model');
 const WellnessEngine = require('../modules/engine/wellnessEngine.service');
 const { validateMealTotals } = require('../utils/healthValidation');
@@ -582,7 +582,7 @@ class NutritionService {
       }).sort({ date: 1 });
 
       // Get nutrition targets
-      const targets = await NutritionTarget.findOne({ userId });
+      const targets = await getUserTargets(userId);
 
       return {
         summaries,
