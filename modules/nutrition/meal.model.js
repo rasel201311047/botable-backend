@@ -1,5 +1,15 @@
 const mongoose = require('mongoose');
 
+const aiMetaSchema = new mongoose.Schema(
+  {
+    originalText: { type: String, default: null },
+    confidence: { type: String, enum: ['high', 'medium', 'low', null], default: null },
+    assumptions: { type: [String], default: [] },
+    model: { type: String, default: null },
+  },
+  { _id: false },
+);
+
 const mealSchema = new mongoose.Schema(
   {
     userId: {
@@ -47,7 +57,7 @@ const mealSchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ['searched_food', 'recent_food', 'favourite_food', 'common_food', 'manual', 'usda', 'user'],
+      enum: ['searched_food', 'recent_food', 'favourite_food', 'common_food', 'manual', 'usda', 'user', 'ai'],
       default: 'manual',
     },
     status: {
@@ -100,8 +110,49 @@ const mealSchema = new mongoose.Schema(
           type: String,
           default: 'manual',
         },
+        // Optional extras (populated by the AI meal logger)
+        portion: {
+          type: String,
+          default: null,
+        },
+        fiber: {
+          type: Number,
+          min: 0,
+          default: 0,
+        },
+        sugar: {
+          type: Number,
+          min: 0,
+          default: 0,
+        },
+        sodium: {
+          type: Number, // in mg
+          min: 0,
+          default: 0,
+        },
       },
     ],
+    // Optional micro totals (populated by the AI meal logger)
+    fiber: {
+      type: Number, // in grams
+      min: 0,
+      default: 0,
+    },
+    sugar: {
+      type: Number, // in grams
+      min: 0,
+      default: 0,
+    },
+    sodium: {
+      type: Number, // in mg
+      min: 0,
+      default: 0,
+    },
+    // Present only for meals logged from a free-text description
+    aiMeta: {
+      type: aiMetaSchema,
+      default: undefined,
+    },
     calories: {
       type: Number,
       required: true,

@@ -1,5 +1,24 @@
 const NutritionService = require('./nutrition.service');
+const NutritionAIService = require('./nutritionAI.service');
 const WellnessEngine = require('../modules/engine/wellnessEngine.service');
+
+const AI_MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout'];
+
+/**
+ * Global XSS middleware HTML-escapes every body string (e.g. ' -> &#x27;, & -> &amp;).
+ * Decode it again so the AI reads, and we store, exactly what the user typed.
+ */
+const cleanUserText = (value, maxLength) =>
+  String(value ?? '')
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
 
 class NutritionController {
   /**
@@ -183,6 +202,120 @@ class NutritionController {
         data: { meal },
       });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * @desc    Describe a meal in plain text; AI extracts the nutrition and logs it
+   *          (meal log + calendar timeline + daily totals)
+   * @route   POST /api/nutrition/meals/ai-log
+   * @access  Private
+   */
+  static async logMealWithAI(req, res, next) {
+    // If the client cancels / disconnects, stop the OpenAI call and do NOT save the meal
+    const abortController = new AbortController();
+    res.on('close', () => {
+      if (!res.writableFinished) abortController.abort();
+    });
+
+    try {
+      const description = cleanUserText(req.body.description, 500);
+      const notes = cleanUserText(req.body.notes, 300);
+
+      if (description.length < 3) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Please describe what you ate (at least 3 characters).',
+        });
+      }
+
+      const mealType = AI_MEAL_TYPES.includes(req.body.mealType) ? req.body.mealType : 'snack';
+
+      // Time of the meal (HH:MM, 24h). Defaults to "now".
+      let scheduledTime = req.body.scheduledTime;
+      if (scheduledTime === undefined || scheduledTime === null || scheduledTime === '') {
+        const now = new Date();
+        scheduledTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+      const timeMatch = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(scheduledTime).trim());
+      if (!timeMatch) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid time. Use HH:MM (24-hour format).',
+        });
+      }
+      const hours = Number(timeMatch[1]);
+      const minutes = Number(timeMatch[2]);
+      scheduledTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+      // Day of the meal. Parsed exactly like the calendar endpoint so the meal lands on the same day.
+      const day = req.body.date ? new Date(req.body.date) : new Date();
+      if (Number.isNaN(day.getTime())) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid date.',
+        });
+      }
+      day.setHours(0, 0, 0, 0);
+      const loggedAt = new Date(day);
+      loggedAt.setHours(hours, minutes, 0, 0);
+
+      // 1) Ask OpenAI to extract the nutrition
+      const analysis = await NutritionAIService.analyzeMeal({
+        description,
+        mealType,
+        signal: abortController.signal,
+      });
+
+      if (abortController.signal.aborted) return;
+
+      // 2) Save it as a normal meal so it shows up everywhere (home totals, meal list, calendar)
+      const meal = await NutritionService.addMeal(req.user.id, {
+        mealType,
+        title: analysis.title,
+        scheduledTime,
+        notes: notes || undefined,
+        source: 'ai',
+        loggedAt,
+        items: analysis.items.map(item => ({
+          name: item.name,
+          portion: item.portion,
+          quantity: item.grams,
+          servingSize: item.grams,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+          fiber: item.fiber,
+          sugar: item.sugar,
+          sodium: item.sodium,
+          source: 'ai',
+        })),
+        aiMeta: {
+          originalText: description,
+          confidence: analysis.confidence,
+          assumptions: analysis.assumptions,
+          model: analysis.model,
+        },
+      });
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Meal analyzed and logged',
+        data: {
+          meal,
+          analysis: {
+            title: analysis.title,
+            items: analysis.items,
+            totals: analysis.totals,
+            confidence: analysis.confidence,
+            assumptions: analysis.assumptions,
+          },
+        },
+      });
+    } catch (error) {
+      if (abortController.signal.aborted) return; // client is gone, nothing to respond to
       next(error);
     }
   }

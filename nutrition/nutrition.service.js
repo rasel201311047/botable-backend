@@ -187,6 +187,7 @@ class NutritionService {
         source,
         loggedAt,
         mealSessionId,
+        aiMeta,
       } = mealData;
 
       const loggedDate = loggedAt ? new Date(loggedAt) : new Date();
@@ -215,7 +216,7 @@ class NutritionService {
             throw new Error(validation.message);
           }
 
-          return {
+          const resolved = {
             foodId: item.foodId || null,
             name: item.name || item.title || 'Food item',
             quantity: Number(item.quantity || 1),
@@ -226,6 +227,17 @@ class NutritionService {
             fat: Math.round(Number(item.fat) * 10) / 10,
             source: item.source || 'manual',
           };
+
+          // Optional extras (only set when provided, e.g. by the AI meal logger)
+          if (item.portion) resolved.portion = String(item.portion).slice(0, 120);
+          ['fiber', 'sugar', 'sodium'].forEach(key => {
+            const value = Number(item[key]);
+            if (item[key] !== undefined && item[key] !== null && Number.isFinite(value) && value >= 0) {
+              resolved[key] = Math.round(value * 10) / 10;
+            }
+          });
+
+          return resolved;
         });
 
         nutritionData = resolvedItems.reduce((sum, item) => {
@@ -243,6 +255,14 @@ class NutritionService {
         mealPayload.fat = Math.round(nutritionData.fat * 10) / 10;
         mealPayload.quantity = resolvedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 1;
         mealPayload.servingSize = resolvedItems[0]?.servingSize || 100;
+
+        if (resolvedItems.some(item => item.fiber !== undefined || item.sugar !== undefined || item.sodium !== undefined)) {
+          mealPayload.fiber = Math.round(resolvedItems.reduce((sum, item) => sum + (item.fiber || 0), 0) * 10) / 10;
+          mealPayload.sugar = Math.round(resolvedItems.reduce((sum, item) => sum + (item.sugar || 0), 0) * 10) / 10;
+          mealPayload.sodium = Math.round(resolvedItems.reduce((sum, item) => sum + (item.sodium || 0), 0));
+        }
+
+        if (aiMeta) mealPayload.aiMeta = aiMeta;
       } else {
         if (!foodId) {
           throw new Error('Food ID or meal items are required');

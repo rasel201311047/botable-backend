@@ -6,6 +6,14 @@ const { validateTimeRange } = require('../../utils/healthValidation');
 const WellnessEngine = require('../engine/wellnessEngine.service');
 const logger = require('../../utils/logger');
 
+// "7:05" -> "07:05" so Date parsing of `2000-01-01T${time}` never yields NaN.
+// Non-string / malformed values are returned unchanged and rejected by validation.
+const padTime = (value) => {
+  if (typeof value !== 'string') return value;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : value;
+};
+
 class SleepRecoveryService {
   /**
    * Get all recovery activities
@@ -93,17 +101,18 @@ class SleepRecoveryService {
     try {
       const {
         activityKey,
-        startTime,
-        endTime,
         quality,
         notes,
         energyBefore,
         energyAfter,
         shiftContext,
+        // Legacy fields: older app builds may still send these. Optional, never required.
         splitSleep,
         interruptedSleep,
         naps = 0,
       } = activityData;
+      const startTime = padTime(activityData.startTime);
+      const endTime = padTime(activityData.endTime);
 
       // Validate activity exists
       const activity = await RecoveryActivity.findOne({ key: activityKey, isActive: true });
@@ -116,15 +125,9 @@ class SleepRecoveryService {
         throw new Error(timeValidation.message);
       }
 
+      // Duration is user-defined (bedtime -> wake-up). minDuration/maxDuration on the
+      // activity are only suggestions shown in the UI and are intentionally not enforced.
       const durationMinutes = timeValidation.durationMinutes;
-
-      if (durationMinutes < activity.minDuration) {
-        throw new Error(`Minimum duration for this activity is ${activity.minDuration} minutes`);
-      }
-
-      if (durationMinutes > activity.maxDuration) {
-        throw new Error(`Maximum duration for this activity is ${activity.maxDuration} minutes`);
-      }
 
       // Create sleep log
       const sleepLog = await SleepLog.create({
@@ -236,8 +239,10 @@ class SleepRecoveryService {
 
       // If times are being updated, recalculate duration
       if (allowedUpdateData.startTime || allowedUpdateData.endTime) {
-        const startTime = allowedUpdateData.startTime || sleepLog.startTime;
-        const endTime = allowedUpdateData.endTime || sleepLog.endTime;
+        const startTime = padTime(allowedUpdateData.startTime || sleepLog.startTime);
+        const endTime = padTime(allowedUpdateData.endTime || sleepLog.endTime);
+        allowedUpdateData.startTime = startTime;
+        allowedUpdateData.endTime = endTime;
 
         // Validate time format
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -259,23 +264,7 @@ class SleepRecoveryService {
           throw new Error('End time must be after start time');
         }
 
-        // Validate against activity constraints if activityKey not changing
-        if (!allowedUpdateData.activityKey) {
-          const activity = await RecoveryActivity.findOne({
-            key: sleepLog.activityKey,
-            isActive: true,
-          });
-
-          if (activity) {
-            if (durationMinutes < activity.minDuration) {
-              throw new Error(`Minimum duration for this activity is ${activity.minDuration} minutes`);
-            }
-
-            if (durationMinutes > activity.maxDuration) {
-              throw new Error(`Maximum duration for this activity is ${activity.maxDuration} minutes`);
-            }
-          }
-        }
+        // No min/max duration enforcement: activity limits are suggestions only.
 
         allowedUpdateData.durationMinutes = durationMinutes;
       }
