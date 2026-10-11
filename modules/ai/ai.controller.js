@@ -1,4 +1,5 @@
 const AIService = require('./ai.service');
+const SubscriptionService = require('../subscription/subscription.service');
 const logger = require('../../utils/logger');
 const { calculateScores, calcNutritionTargets } = require('./engine/score_engine');
 const { generateSuggestions } = require('./engine/suggestion_engine');
@@ -37,9 +38,9 @@ class AIController {
      */
     static async getWorkoutPlan(req, res, next) {
         try {
-            const { goal, duration } = req.query;
+            const { goal, duration, equipment } = req.query;
 
-            const plan = await AIService.generateWorkoutPlan(req.user.id, goal, duration);
+            const plan = await AIService.generateWorkoutPlan(req.user.id, goal, duration, equipment);
 
             res.status(200).json({
                 status: 'success',
@@ -123,13 +124,55 @@ class AIController {
                 });
             }
 
-            const response = await AIService.chatWithAI(req.user.id, message, context);
+            const response = await AIService.chatWithAI(req.user.id, message);
 
             res.status(200).json({
                 status: 'success',
                 data: response,
             });
         } catch (error) {
+            if (error.statusCode === 400) {
+                return res.status(400).json({ status: 'error', message: error.message });
+            }
+            next(error);
+        }
+    }
+
+    /**
+     * @desc    Live snapshot (today's consumption, sleep vs target, readiness) + starter prompts for the chat
+     * @route   GET /api/ai/chat-context
+     * @access  Private
+     */
+    static async getChatContext(req, res, next) {
+        try {
+            const data = await AIService.getChatSnapshot(req.user.id);
+            res.status(200).json({ status: 'success', data });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @desc    AI-written, data-grounded coach note for a tool (cached until the user's data changes)
+     * @route   GET /api/ai/coach-note?tool=nutrition|sleep|workout|progress|suggestions
+     * @access  Private
+     */
+    static async getCoachNote(req, res, next) {
+        try {
+            const tool = String(req.query.tool || '');
+            // Same access rules as the underlying tools (sleep + suggestions are free)
+            if (['nutrition', 'workout', 'progress'].includes(tool)) {
+                const hasPremium = await SubscriptionService.hasPremiumAccess(req.user.id);
+                if (!hasPremium) {
+                    return res.status(402).json({ status: 'error', message: 'Subscription required for this feature' });
+                }
+            }
+            const data = await AIService.getCoachNote(req.user.id, tool);
+            res.status(200).json({ status: 'success', data });
+        } catch (error) {
+            if (error.statusCode === 400) {
+                return res.status(400).json({ status: 'error', message: error.message });
+            }
             next(error);
         }
     }

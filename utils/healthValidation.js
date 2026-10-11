@@ -28,6 +28,20 @@ const normalizeUnits = (payload = {}) => {
     normalized.dateOfBirth = Number.isNaN(dob.getTime()) ? null : dob;
   }
 
+  // Age is entered directly (whole years). Empty string / null means "not provided".
+  if (normalized.age !== undefined) {
+    if (normalized.age === null || normalized.age === '') {
+      delete normalized.age;
+    } else {
+      const age = toNumber(normalized.age);
+      normalized.age = age === null ? NaN : Math.round(age);
+    }
+  }
+
+  if (typeof normalized.goalType === 'string') {
+    normalized.goalType = normalized.goalType.trim().toLowerCase();
+  }
+
   if (normalized.phoneNumber) {
     normalized.phoneNumber = normalizePhone(normalized.phoneNumber);
   }
@@ -73,6 +87,16 @@ const validateProfile = (payload = {}) => {
     } else if (ageYears < 13 || ageYears > 120) {
       errors.push('Date of birth must produce an age between 13 and 120');
     }
+  }
+
+  if (normalized.age !== undefined) {
+    if (!Number.isInteger(normalized.age) || normalized.age < 13 || normalized.age > 120) {
+      errors.push('Age must be a whole number between 13 and 120');
+    }
+  }
+
+  if (normalized.goalType !== undefined && !GOAL_TYPES.includes(normalized.goalType)) {
+    errors.push(`Goal must be one of: ${GOAL_TYPES.join(', ')}`);
   }
 
   if (normalized.gender && !['male', 'female', 'other', 'prefer_not_to_say'].includes(normalized.gender)) {

@@ -2,10 +2,36 @@ const User = require('./user.model');
 const WorkoutLog = require('../workout/workoutLog.model');
 const Meal = require('../nutrition/meal.model');
 const SleepLog = require('../sleep-recovery/sleepLog.model');
-const DailyNutritionSummary = require('../../nutrition/dailyNutritionSummary.model');
+const { getDayTotals } = require('../../utils/dailyNutrition');
 const logger = require('../../utils/logger');
 const mongoose = require('mongoose');
 const { validateProfile } = require('../../utils/healthValidation');
+const OnboardingService = require('../onboarding/onboarding.service');
+/** Fields a user may change through PUT /users/profile */
+const PROFILE_UPDATE_FIELDS = [
+  'name',
+  'height',
+  'weight',
+  'age',
+  'dateOfBirth',
+  'gender',
+  'phoneNumber',
+  'emergencyContact',
+  'location',
+  'preferences',
+  'notifications',
+  'goalType',
+];
+
+/** Whole years between a date of birth and today */
+const ageFromDate = value => {
+  const dob = new Date(value);
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
+  return age;
+};
 
 class UserService {
   /**
@@ -31,8 +57,11 @@ class UserService {
    */
   static async updateProfile(userId, updateData) {
     try {
-      // Remove sensitive fields
-      const { password, email, role, ...safeUpdateData } = updateData;
+      // Only profile fields can be changed here (never role / password / email / subscription ...)
+      const safeUpdateData = {};
+      for (const key of PROFILE_UPDATE_FIELDS) {
+        if (updateData && updateData[key] !== undefined) safeUpdateData[key] = updateData[key];
+      }
 
       const validation = validateProfile(safeUpdateData);
       if (!validation.valid) {
@@ -41,7 +70,28 @@ class UserService {
         throw err;
       }
 
-      const updates = { ...validation.value };
+      const { goalType: requestedGoal, ...updates } = validation.value;
+
+      const current = await User.findById(userId).select(
+        'age dateOfBirth goalType shiftType height weight gender',
+      );
+      if (!current) {
+        throw new Error('User not found');
+      }
+
+      // Keep `age` (what the app edits and the AI / macro engines read) and the legacy
+      // `dateOfBirth` consistent: a DOB derives the age, a manually entered age that no longer
+      // matches the stored DOB retires that DOB.
+      if (updates.dateOfBirth && updates.age === undefined) {
+        updates.age = ageFromDate(updates.dateOfBirth);
+      } else if (
+        updates.age !== undefined &&
+        updates.dateOfBirth === undefined &&
+        current.dateOfBirth &&
+        ageFromDate(current.dateOfBirth) !== updates.age
+      ) {
+        updates.dateOfBirth = null;
+      }
 
       if (updates.location && typeof updates.location === 'string') {
         updates.location = { city: updates.location };
@@ -53,11 +103,31 @@ class UserService {
         };
       }
 
-      const user = await User.findByIdAndUpdate(userId, updates, {
-        returnDocument: 'after',
-        runValidators: true,
-      }).select('-password');
+      if (Object.keys(updates).length > 0) {
+        await User.findByIdAndUpdate(userId, updates, {
+          returnDocument: 'after',
+          runValidators: true,
+        });
+      }
 
+      const goalChanged = !!requestedGoal && requestedGoal !== current.goalType;
+
+      if (goalChanged) {
+        // Shared with onboarding: validates the goal, regenerates the nutrition targets (using the
+        // freshly saved age / gender / height / weight), clears stale planned items and rebuilds
+        // the schedule.
+        try {
+          await OnboardingService.updateUserGoal(userId, requestedGoal);
+        } catch (goalError) {
+          if (goalError.message === 'Invalid goal selection') goalError.name = 'ValidationError';
+          throw goalError;
+        }
+      }
+      // Changing age / gender / height / weight does NOT silently change the stored nutrition
+      // targets: GET /nutrition/targets reports `isStale` and the user regenerates them from the
+      // Personal Information screen (POST /nutrition/targets/regenerate).
+
+      const user = await User.findById(userId).select('-password');
       if (!user) {
         throw new Error('User not found');
       }
@@ -183,10 +253,7 @@ class UserService {
 
           this.getRecentActivities(userId, 5),
 
-          DailyNutritionSummary.findOne({
-            userId,
-            date: new Date().setHours(0, 0, 0, 0),
-          }),
+          getDayTotals(userId),
         ]);
 
       return {

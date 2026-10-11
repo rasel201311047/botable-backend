@@ -18,6 +18,20 @@ const aiMealLimiter = rateLimit({
   },
 });
 
+// Regenerating targets may call OpenAI, so cap it per user
+const targetsLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => (req.user ? String(req.user.id) : 'anonymous'),
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    status: 'error',
+    message: 'You have regenerated your targets many times. Please try again later.',
+  },
+});
+
 // Food search and management
 router.get('/foods/search', protect, NutritionController.searchFoods);
 router.get('/foods/usda/:fdcId', protect, NutritionController.getUSDAFoodDetails);
@@ -35,6 +49,7 @@ router.delete('/meals/:id', protect, NutritionController.deleteMeal);
 // Nutrition summary and targets
 router.get('/summary', protect, NutritionController.getNutritionSummary);
 router.get('/targets', protect, NutritionController.getNutritionTargets);
+router.post('/targets/regenerate', protect, targetsLimiter, NutritionController.regenerateNutritionTargets);
 router.put('/targets', protect, NutritionController.updateNutritionTargets);
 
 module.exports = router;

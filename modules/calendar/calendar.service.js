@@ -7,6 +7,7 @@ const Shift = require('../onboarding/shift.model');
 const Workout = require('../workout/workout.model');
 const WellnessEngine = require('../engine/wellnessEngine.service');
 const logger = require('../../utils/logger');
+const { dayMealsFilter, DAY_MS } = require('../../utils/dailyNutrition');
 const mongoose = require('mongoose');
 
 class CalendarService {
@@ -161,10 +162,10 @@ class CalendarService {
           date: queryDate,
         }).populate('workoutId', 'title category durationMinutes'),
 
-        Meal.find({
-          userId,
-          date: queryDate,
-        }).populate('foodId', 'name'),
+        // Every meal of the day (not only those whose `date` equals local midnight)
+        Meal.find(dayMealsFilter(userId, queryDate, new Date(queryDate.getTime() + DAY_MS)))
+          .populate('foodId', 'name')
+          .sort({ loggedAt: 1 }),
 
         SleepLog.find({
           userId,
@@ -214,7 +215,13 @@ class CalendarService {
 
       // Process meals
       meals.forEach(meal => {
-        const time = meal.scheduledTime || '12:00'; // Default time if not scheduled
+        // Prefer the planned time; otherwise the moment it was eaten (HH:MM, local)
+        const eatenAt = meal.loggedAt ? new Date(meal.loggedAt) : null;
+        const time =
+          meal.scheduledTime ||
+          (eatenAt && !Number.isNaN(eatenAt.getTime())
+            ? `${String(eatenAt.getHours()).padStart(2, '0')}:${String(eatenAt.getMinutes()).padStart(2, '0')}`
+            : '12:00');
 
         // Generate dynamic subtitle
         const subtitle = this.generateDynamicSubtitle('meal', meal, user, schedule, sleepRecovery, time);

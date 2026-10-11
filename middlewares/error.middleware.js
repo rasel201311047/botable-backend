@@ -23,7 +23,10 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join(', ');
+    // Mongoose errors carry `errors`; hand-thrown validation errors only have a message
+    const message = err.errors
+      ? Object.values(err.errors).map(val => val.message).join(', ')
+      : err.message;
     error = { message, statusCode: 400 };
   }
 
