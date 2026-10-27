@@ -12,10 +12,10 @@ class WorkoutService {
    */
   static async getWorkouts(userId, filters = {}) {
     try {
-      const { search, category, intensity, page = 1, limit = 20, offset, tab = 'discover' } = filters;
+      const { search, category, intensity, page = 1, limit = 20, offset, tab = 'discover', gender } = filters;
 
       const user = userId ? await User.findById(userId).select('gender goalType age height weight').lean() : null;
-      const userGender = user?.gender || 'male';
+      const userGender = WorkoutXService.normalizeGender(gender || user?.gender);
 
       // If user specifically requested 'my_workouts', return from MongoDB
       if (tab === 'my_workouts') {
@@ -47,7 +47,7 @@ class WorkoutService {
         };
       }
 
-      // Default: Discover / Workout Library from WorkoutX API
+      // Default: Discover / Workout Library from WorkoutX API strictly for userGender
       const calculatedOffset = offset !== undefined ? parseInt(offset) : (parseInt(page) - 1) * parseInt(limit);
       const wxData = await WorkoutXService.getLibraryExercises({
         limit: parseInt(limit),
@@ -57,9 +57,10 @@ class WorkoutService {
         bodyPart: category,
       });
 
-      // Fetch 2 recommended exercises for today (only on initial load / offset 0 when not searching)
+      // Fetch 2 recommended exercises for today strictly for userGender (only on initial load / offset 0 when not searching)
       let recommended = [];
       if (calculatedOffset === 0 && !search && user) {
+        user.gender = userGender;
         recommended = await WorkoutXService.getRecommendedForUser(user);
       }
 
@@ -82,12 +83,15 @@ class WorkoutService {
   }
 
   /**
-   * Get 2 recommended exercises for user today
+   * Get 2 recommended exercises for user today matching user's gender
    */
-  static async getRecommendedWorkouts(userId) {
+  static async getRecommendedWorkouts(userId, explicitGender) {
     try {
-      const user = await User.findById(userId).select('gender goalType age height weight').lean();
-      if (!user) return [];
+      let user = userId ? await User.findById(userId).select('gender goalType age height weight').lean() : null;
+      if (!user) {
+        user = { _id: userId || 'default', gender: explicitGender || 'male' };
+      }
+      user.gender = WorkoutXService.normalizeGender(explicitGender || user.gender);
       return await WorkoutXService.getRecommendedForUser(user);
     } catch (error) {
       logger.error(`Get recommended workouts error: ${error.message}`);
@@ -96,15 +100,19 @@ class WorkoutService {
   }
 
   /**
-   * Get workout by ID
+   * Get workout by ID with user gender resolution
    */
-  static async getWorkoutById(workoutId, userId) {
+  static async getWorkoutById(workoutId, userId, explicitGender) {
     try {
+      if (!workoutId || typeof workoutId !== 'string' || workoutId === '[object Object]') {
+        throw new Error('Invalid workout ID');
+      }
+
       const user = userId ? await User.findById(userId).select('gender').lean() : null;
-      const userGender = user?.gender || 'male';
+      const userGender = WorkoutXService.normalizeGender(explicitGender || user?.gender);
 
       // Check if WorkoutX ID (e.g. starts with ex_ or not a Mongo ObjectId)
-      if (typeof workoutId === 'string' && (workoutId.startsWith('ex_') || !mongoose.Types.ObjectId.isValid(workoutId))) {
+      if (workoutId.startsWith('ex_') || !mongoose.Types.ObjectId.isValid(workoutId)) {
         const wxExercise = await WorkoutXService.getExerciseById(workoutId, userGender);
         if (wxExercise) return wxExercise;
       }

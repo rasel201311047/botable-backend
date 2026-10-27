@@ -10,7 +10,7 @@ class WorkoutController {
    */
   static async getWorkouts(req, res, next) {
     try {
-      const { search, category, intensity, durationMin, durationMax, page = 1, limit = 20, offset, tab } = req.query;
+      const { search, category, intensity, durationMin, durationMax, page = 1, limit = 20, offset, tab, gender } = req.query;
 
       const result = await WorkoutService.getWorkouts(req.user.id, {
         search,
@@ -22,6 +22,7 @@ class WorkoutController {
         limit: parseInt(limit),
         offset: offset !== undefined ? parseInt(offset) : undefined,
         tab,
+        gender: gender || req.user?.gender,
       });
 
       res.status(200).json({
@@ -42,7 +43,8 @@ class WorkoutController {
    */
   static async getRecommendedWorkouts(req, res, next) {
     try {
-      const recommended = await WorkoutService.getRecommendedWorkouts(req.user.id);
+      const userGender = req.query.gender || req.user?.gender;
+      const recommended = await WorkoutService.getRecommendedWorkouts(req.user.id, userGender);
 
       res.status(200).json({
         status: 'success',
@@ -61,8 +63,9 @@ class WorkoutController {
   static async getWorkoutById(req, res, next) {
     try {
       const { id } = req.params;
+      const userGender = req.query.gender || req.user?.gender;
 
-      const workout = await WorkoutService.getWorkoutById(id, req.user.id);
+      const workout = await WorkoutService.getWorkoutById(id, req.user.id, userGender);
 
       res.status(200).json({
         status: 'success',
