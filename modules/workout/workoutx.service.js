@@ -2,7 +2,7 @@ const axios = require('axios');
 const logger = require('../../utils/logger');
 const WellnessEngine = require('../engine/wellnessEngine.service');
 
-// Simple, high-performance in-memory cache to respect rate limits & quota
+// High-performance in-memory cache to respect rate limits & quota
 const cache = new Map();
 
 function getCached(key) {
@@ -20,6 +20,10 @@ function setCached(key, value, ttlMs) {
     value,
     expiresAt: Date.now() + ttlMs,
   });
+}
+
+function clearCache() {
+  cache.clear();
 }
 
 class WorkoutXService {
@@ -45,17 +49,24 @@ class WorkoutXService {
   }
 
   /**
+   * Normalize user gender to 'male' or 'female'
+   */
+  normalizeGender(gender) {
+    if (!gender) return 'male';
+    const g = String(gender).toLowerCase().trim();
+    return g === 'female' ? 'female' : 'male';
+  }
+
+  /**
    * Maps WorkoutX exercise object to app workout model
    */
   mapExercise(exercise, isRecommended = false, recommendationReason = null) {
     if (!exercise) return null;
 
-    // Intensity mapping from difficulty
     let intensity = 'medium';
     if (exercise.difficulty === 'beginner') intensity = 'low';
     if (exercise.difficulty === 'advanced') intensity = 'high';
 
-    // Category mapping
     let category = 'custom';
     const cat = (exercise.category || '').toLowerCase();
     const bp = (exercise.bodyPart || '').toLowerCase();
@@ -69,7 +80,6 @@ class WorkoutXService {
       category = 'recovery';
     }
 
-    // Default duration estimation: ~15 to 25 mins
     const durationMinutes = exercise.difficulty === 'advanced' ? 25 : exercise.difficulty === 'intermediate' ? 20 : 15;
 
     const posterUrl = exercise.media?.poster || '';
@@ -114,10 +124,10 @@ class WorkoutXService {
   }
 
   /**
-   * Fetches exercises library with pagination, gender model, and optional search
+   * Fetches exercises library strictly filtered by user's profile gender
    */
   async getLibraryExercises({ limit = 20, offset = 0, search = '', gender = 'male', bodyPart = '' } = {}) {
-    const userModel = gender === 'female' ? 'female' : 'male';
+    const userModel = this.normalizeGender(gender);
     const cacheKey = `lib_${limit}_${offset}_${search}_${userModel}_${bodyPart}`;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -128,14 +138,14 @@ class WorkoutXService {
       const params = new URLSearchParams();
       params.append('limit', String(Math.min(limit, 50)));
       params.append('offset', String(offset));
+      // Always enforce the user's gender model
+      params.append('model', userModel);
 
-      // Note: Free plan supports one primary filter at a time (model or name or bodyPart)
       if (search && search.trim()) {
         params.append('name', search.trim());
-      } else if (bodyPart && bodyPart.trim()) {
+      }
+      if (bodyPart && bodyPart.trim()) {
         params.append('bodyPart', bodyPart.trim());
-      } else {
-        params.append('model', userModel);
       }
 
       const url = `${this.baseUrl}/exercises?${params.toString()}`;
@@ -145,9 +155,10 @@ class WorkoutXService {
       });
 
       const total = response.data?.total || 0;
-      const results = response.data?.results || [];
+      const rawResults = response.data?.results || [];
 
-      // If results returned a model different from user requested and counterpart is available, we map cleanly
+      // Guarantee strict gender model match
+      const results = rawResults.filter(item => item.model === userModel);
       const mapped = results.map(item => this.mapExercise(item));
 
       const result = {
@@ -155,7 +166,7 @@ class WorkoutXService {
         limit: parseInt(limit),
         offset: parseInt(offset),
         results: mapped,
-        hasMore: offset + results.length < total,
+        hasMore: offset + rawResults.length < total,
       };
 
       // Cache for 6 hours
@@ -163,7 +174,6 @@ class WorkoutXService {
       return result;
     } catch (error) {
       logger.error(`WorkoutX getLibraryExercises error: ${error.response?.data?.message || error.message}`);
-      // Fallback empty result so UI doesn't crash
       return {
         total: 0,
         limit,
@@ -175,12 +185,13 @@ class WorkoutXService {
   }
 
   /**
-   * Get single exercise by ID with gender counterpart resolution
+   * Get single exercise by ID with strict gender model resolution
    */
   async getExerciseById(id, targetGender = null) {
     if (!id) return null;
 
-    const cacheKey = `ex_${id}_${targetGender || 'any'}`;
+    const normalizedGender = this.normalizeGender(targetGender);
+    const cacheKey = `ex_v2_${id}_${normalizedGender}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
@@ -193,28 +204,86 @@ class WorkoutXService {
 
       let exercise = response.data;
 
-      // Gender Counterpart Resolution
-      // If user is female and exercise is male, check counterpartId
-      if (targetGender) {
-        const normalizedGender = targetGender.toLowerCase();
-        if (exercise.model && exercise.model !== normalizedGender && exercise.counterpartId) {
+      // Strict Gender Resolution: If the exercise model does not match the user's gender
+      if (exercise.model && exercise.model !== normalizedGender) {
+        let matched = false;
+
+        // 1. Try counterpartId
+        if (exercise.counterpartId) {
           try {
             const counterpartUrl = `${this.baseUrl}/exercises/${exercise.counterpartId}`;
             const counterpartRes = await axios.get(counterpartUrl, {
               headers: this.getHeaders(),
               timeout: this.timeout,
             });
-            if (counterpartRes.data && counterpartRes.data.media) {
+            if (counterpartRes.data && counterpartRes.data.model === normalizedGender && counterpartRes.data.media) {
               exercise = counterpartRes.data;
+              matched = true;
             }
           } catch (cpErr) {
             logger.warn(`Could not fetch counterpart ${exercise.counterpartId}: ${cpErr.message}`);
           }
         }
+
+        // 2. If no counterpart or counterpart failed, search by name with the user's gender
+        if (!matched && exercise.name) {
+          try {
+            const nameSearchUrl = `${this.baseUrl}/exercises?name=${encodeURIComponent(exercise.name)}&model=${normalizedGender}&limit=1`;
+            const nameSearchRes = await axios.get(nameSearchUrl, {
+              headers: this.getHeaders(),
+              timeout: this.timeout,
+            });
+            if (nameSearchRes.data?.results?.length > 0) {
+              const candidate = nameSearchRes.data.results[0];
+              if (candidate.model === normalizedGender) {
+                exercise = candidate;
+                matched = true;
+              }
+            }
+          } catch (nsErr) {
+            logger.warn(`Could not search name for gender counterpart: ${nsErr.message}`);
+          }
+        }
+
+        // 3. If still not matched, find equivalent exercise with same bodyPart and target gender
+        if (!matched && (exercise.bodyPart || exercise.target)) {
+          try {
+            const filterKey = exercise.bodyPart ? `bodyPart=${encodeURIComponent(exercise.bodyPart)}` : `target=${encodeURIComponent(exercise.target)}`;
+            const fallbackUrl = `${this.baseUrl}/exercises?${filterKey}&model=${normalizedGender}&limit=5`;
+            const fallbackRes = await axios.get(fallbackUrl, {
+              headers: this.getHeaders(),
+              timeout: this.timeout,
+            });
+            const validCandidates = (fallbackRes.data?.results || []).filter(item => item.model === normalizedGender);
+            if (validCandidates.length > 0) {
+              exercise = validCandidates[0];
+              matched = true;
+            }
+          } catch (fbErr) {
+            logger.warn(`Could not search bodyPart fallback for gender: ${fbErr.message}`);
+          }
+        }
+
+        // 4. Absolute fallback: Any exercise of the user's gender
+        if (!matched) {
+          try {
+            const anyUrl = `${this.baseUrl}/exercises?model=${normalizedGender}&limit=1`;
+            const anyRes = await axios.get(anyUrl, {
+              headers: this.getHeaders(),
+              timeout: this.timeout,
+            });
+            const valid = (anyRes.data?.results || []).filter(item => item.model === normalizedGender);
+            if (valid.length > 0) {
+              exercise = valid[0];
+              matched = true;
+            }
+          } catch (anyErr) {
+            logger.warn(`Could not fallback to model: ${anyErr.message}`);
+          }
+        }
       }
 
       const mapped = this.mapExercise(exercise);
-      // Cache for 12 hours
       setCached(cacheKey, mapped, 12 * 60 * 60 * 1000);
       return mapped;
     } catch (error) {
@@ -224,25 +293,24 @@ class WorkoutXService {
   }
 
   /**
-   * Generates 2 recommended exercises for today based on user's current health/body condition & goal
+   * Generates 2 recommended exercises for today strictly matching user's profile gender & health condition
    */
   async getRecommendedForUser(user) {
     if (!user) return [];
 
+    const userGender = this.normalizeGender(user.gender);
     const todayStr = new Date().toISOString().slice(0, 10);
     const userId = user._id || user.id;
-    const cacheKey = `rec_${userId}_${todayStr}`;
+    const cacheKey = `rec_v2_${userId}_${userGender}_${todayStr}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const userGender = user.gender === 'female' ? 'female' : 'male';
     const goal = user.goalType || 'maintenance';
 
     let conditionReason = '';
     let targetBodyPart = 'Cardio';
 
     try {
-      // Build context from WellnessEngine
       const context = await WellnessEngine.buildContext(userId);
       const readiness = context.scores?.readiness ?? 80;
       const sleepScore = context.scores?.sleep ?? 80;
@@ -279,10 +347,11 @@ class WorkoutXService {
     }
 
     try {
-      // Fetch exercises for the target body part
+      // Fetch exercises with model STRICTLY set to userGender
       const params = new URLSearchParams();
+      params.append('model', userGender);
       params.append('bodyPart', targetBodyPart);
-      params.append('limit', '10');
+      params.append('limit', '20');
 
       const url = `${this.baseUrl}/exercises?${params.toString()}`;
       const response = await axios.get(url, {
@@ -290,29 +359,19 @@ class WorkoutXService {
         timeout: this.timeout,
       });
 
-      let candidates = response.data?.results || [];
+      let candidates = (response.data?.results || []).filter(item => item.model === userGender);
 
-      // Filter or resolve for user gender
-      if (candidates.length > 0) {
-        // If candidate model does not match user gender, attempt counterpart if available
-        candidates = await Promise.all(
-          candidates.slice(0, 4).map(async item => {
-            if (item.model !== userGender && item.counterpartId) {
-              try {
-                const cpRes = await axios.get(`${this.baseUrl}/exercises/${item.counterpartId}`, {
-                  headers: this.getHeaders(),
-                  timeout: 4000,
-                });
-                if (cpRes.data) return cpRes.data;
-              } catch (e) {}
-            }
-            return item;
-          })
-        );
+      // Fallback: If no exercises found for this specific bodyPart with this gender, query just the gender
+      if (candidates.length < 2) {
+        const fallbackParams = new URLSearchParams({ model: userGender, limit: '20' });
+        const fallbackRes = await axios.get(`${this.baseUrl}/exercises?${fallbackParams.toString()}`, {
+          headers: this.getHeaders(),
+          timeout: this.timeout,
+        });
+        candidates = (fallbackRes.data?.results || []).filter(item => item.model === userGender);
       }
 
       // Pick exactly 2 exercises deterministically for today
-      // Generate daily offset index based on day of year
       const dayOfYear = Math.floor(
         (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -322,10 +381,8 @@ class WorkoutXService {
       const rec1 = candidates[idx1] || candidates[0];
       const rec2 = candidates[idx2] && candidates[idx2].id !== rec1?.id ? candidates[idx2] : candidates[1] || rec1;
 
-      const recommendations = [
-        this.mapExercise(rec1, true, conditionReason),
-        this.mapExercise(rec2, true, conditionReason),
-      ].filter(Boolean);
+      const validCandidates = [rec1, rec2].filter(Boolean).filter(item => item.model === userGender);
+      const recommendations = validCandidates.map(item => this.mapExercise(item, true, conditionReason));
 
       // Cache until tomorrow
       setCached(cacheKey, recommendations, 12 * 60 * 60 * 1000);
@@ -334,6 +391,10 @@ class WorkoutXService {
       logger.error(`WorkoutX getRecommendedForUser error: ${err.response?.data?.message || err.message}`);
       return [];
     }
+  }
+
+  clearCache() {
+    clearCache();
   }
 }
 
