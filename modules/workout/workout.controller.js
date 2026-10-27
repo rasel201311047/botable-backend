@@ -10,7 +10,7 @@ class WorkoutController {
    */
   static async getWorkouts(req, res, next) {
     try {
-      const { search, category, intensity, durationMin, durationMax, page = 1, limit = 20 } = req.query;
+      const { search, category, intensity, durationMin, durationMax, page = 1, limit = 20, offset, tab } = req.query;
 
       const result = await WorkoutService.getWorkouts(req.user.id, {
         search,
@@ -20,12 +20,33 @@ class WorkoutController {
         durationMax,
         page: parseInt(page),
         limit: parseInt(limit),
+        offset: offset !== undefined ? parseInt(offset) : undefined,
+        tab,
       });
 
       res.status(200).json({
         status: 'success',
         data: result.workouts,
+        recommended: result.recommended || [],
         pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * @desc    Get recommended workouts for today
+   * @route   GET /api/workouts/recommended
+   * @access  Private
+   */
+  static async getRecommendedWorkouts(req, res, next) {
+    try {
+      const recommended = await WorkoutService.getRecommendedWorkouts(req.user.id);
+
+      res.status(200).json({
+        status: 'success',
+        data: recommended,
       });
     } catch (error) {
       next(error);

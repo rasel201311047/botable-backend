@@ -98,6 +98,28 @@ const workoutSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        externalId: {
+            type: String,
+            default: null,
+            index: true,
+        },
+        animationUrl: {
+            type: String,
+            default: null,
+        },
+        posterUrl: {
+            type: String,
+            default: null,
+        },
+        model: {
+            type: String,
+            enum: ['male', 'female', null],
+            default: null,
+        },
+        counterpartId: {
+            type: String,
+            default: null,
+        },
         isActive: {
             type: Boolean,
             default: true,

@@ -8,9 +8,13 @@ const workoutLogSchema = new mongoose.Schema(
       required: true,
     },
     workoutId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.Mixed,
       ref: 'Workout',
       required: true,
+    },
+    workoutExternalId: {
+      type: String,
+      default: null,
     },
     date: {
       type: Date,

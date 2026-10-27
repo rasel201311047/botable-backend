@@ -1,127 +1,78 @@
+const mongoose = require('mongoose');
 const Workout = require('./workout.model');
 const WorkoutLog = require('./workoutLog.model');
 const User = require('../user/user.model');
 const WellnessEngine = require('../engine/wellnessEngine.service');
+const WorkoutXService = require('./workoutx.service');
 const logger = require('../../utils/logger');
 
 class WorkoutService {
   /**
-   * Get all workouts (system + user's custom workouts)
+   * Get all workouts (WorkoutX API for library + user custom workouts for my_workouts)
    */
   static async getWorkouts(userId, filters = {}) {
     try {
-      const { search, category, intensity, durationMin, durationMax, page = 1, limit = 20 } = filters;
+      const { search, category, intensity, page = 1, limit = 20, offset, tab = 'discover' } = filters;
 
-      // Build query
-      const query = {
-        $or: [
-          { userId: null }, // System workouts
-          { userId }, // User's custom workouts
-          { isPublic: true }, // Public workouts from other users
-        ],
-        isActive: true,
-      };
+      const user = userId ? await User.findById(userId).select('gender goalType age height weight').lean() : null;
+      const userGender = user?.gender || 'male';
 
-      // Apply filters
-      if (search) {
-        query.$text = { $search: search };
+      // If user specifically requested 'my_workouts', return from MongoDB
+      if (tab === 'my_workouts') {
+        const query = { userId, isActive: true };
+        if (search) query.$text = { $search: search };
+        if (category) query.category = category;
+        if (intensity) query.intensity = intensity;
+
+        const skip = offset !== undefined ? parseInt(offset) : (parseInt(page) - 1) * parseInt(limit);
+        const workouts = await Workout.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .populate('userId', 'name')
+          .lean();
+
+        const total = await Workout.countDocuments(query);
+        return {
+          workouts,
+          recommended: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            offset: skip,
+            total,
+            pages: Math.ceil(total / limit),
+            hasMore: skip + workouts.length < total,
+          },
+        };
       }
 
-      if (category) {
-        query.category = category;
-      }
+      // Default: Discover / Workout Library from WorkoutX API
+      const calculatedOffset = offset !== undefined ? parseInt(offset) : (parseInt(page) - 1) * parseInt(limit);
+      const wxData = await WorkoutXService.getLibraryExercises({
+        limit: parseInt(limit),
+        offset: calculatedOffset,
+        search,
+        gender: userGender,
+        bodyPart: category,
+      });
 
-      if (intensity) {
-        query.intensity = intensity;
-      }
-
-      if (durationMin || durationMax) {
-        query.durationMinutes = {};
-        if (durationMin) query.durationMinutes.$gte = parseInt(durationMin);
-        if (durationMax) query.durationMinutes.$lte = parseInt(durationMax);
-      }
-
-      const skip = (page - 1) * limit;
-
-      const workouts = await Workout.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .populate('userId', 'name')
-        .lean();
-
-      // Get total count for pagination
-      const total = await Workout.countDocuments(query);
-
-      let enrichedWorkouts = workouts;
-
-      if (userId && !search) {
-        try {
-          const context = await WellnessEngine.buildContext(userId);
-          const readiness = context.scores?.readinessScore || 100;
-          const sleepScore = context.scores?.sleepScore || 100;
-          const goal = context.user?.goalType || 'general_fitness';
-          
-          let recommendedCount = 0;
-          const MAX_RECOMMENDED = 3;
-
-          enrichedWorkouts = enrichedWorkouts.map(workout => {
-            let isRecommended = false;
-            let reason = null;
-
-            if (recommendedCount < MAX_RECOMMENDED) {
-              // High fatigue / sleep debt overrides goal
-              if (readiness < 50 || sleepScore < 60) {
-                if (workout.category === 'recovery' || workout.category === 'yoga' || workout.intensity === 'low') {
-                  isRecommended = true;
-                  reason = "Active recovery recommended due to high fatigue/low sleep score";
-                }
-              } 
-              // Otherwise, match based on user's goal
-              else {
-                if (goal === 'muscle_gain' && workout.category === 'strength') {
-                  isRecommended = true;
-                  reason = "Matches your muscle gain goal";
-                } else if (goal === 'fat_loss' && (workout.category === 'hiit' || workout.category === 'cardio')) {
-                  isRecommended = true;
-                  reason = "Matches your fat loss goal";
-                } else if (goal === 'endurance' && workout.category === 'cardio') {
-                  isRecommended = true;
-                  reason = "Matches your endurance goal";
-                }
-              }
-            }
-
-            if (isRecommended) {
-              recommendedCount++;
-            }
-
-            return {
-              ...workout,
-              recommended: isRecommended,
-              recommendationReason: reason
-            };
-          });
-
-          // Sort recommended to top
-          enrichedWorkouts.sort((a, b) => {
-            if (a.recommended && !b.recommended) return -1;
-            if (!a.recommended && b.recommended) return 1;
-            return 0;
-          });
-          
-        } catch (engineError) {
-          logger.error(`Failed to build context for workout recommendations: ${engineError.message}`);
-        }
+      // Fetch 2 recommended exercises for today (only on initial load / offset 0 when not searching)
+      let recommended = [];
+      if (calculatedOffset === 0 && !search && user) {
+        recommended = await WorkoutXService.getRecommendedForUser(user);
       }
 
       return {
-        workouts: enrichedWorkouts,
+        workouts: wxData.results,
+        recommended,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / limit),
+          offset: calculatedOffset,
+          total: wxData.total,
+          pages: Math.ceil(wxData.total / limit),
+          hasMore: wxData.hasMore,
         },
       };
     } catch (error) {
@@ -131,21 +82,45 @@ class WorkoutService {
   }
 
   /**
+   * Get 2 recommended exercises for user today
+   */
+  static async getRecommendedWorkouts(userId) {
+    try {
+      const user = await User.findById(userId).select('gender goalType age height weight').lean();
+      if (!user) return [];
+      return await WorkoutXService.getRecommendedForUser(user);
+    } catch (error) {
+      logger.error(`Get recommended workouts error: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Get workout by ID
    */
   static async getWorkoutById(workoutId, userId) {
     try {
-      const workout = await Workout.findById(workoutId).populate('userId', 'name email').lean();
+      const user = userId ? await User.findById(userId).select('gender').lean() : null;
+      const userGender = user?.gender || 'male';
 
-      if (!workout) {
-        throw new Error('Workout not found');
+      // Check if WorkoutX ID (e.g. starts with ex_ or not a Mongo ObjectId)
+      if (typeof workoutId === 'string' && (workoutId.startsWith('ex_') || !mongoose.Types.ObjectId.isValid(workoutId))) {
+        const wxExercise = await WorkoutXService.getExerciseById(workoutId, userGender);
+        if (wxExercise) return wxExercise;
       }
 
-      if (!workout.isPublic && workout.userId && workout.userId._id && workout.userId._id.toString() !== userId.toString()) {
-        throw new Error('Not authorized to view this workout');
+      // Check MongoDB
+      if (mongoose.Types.ObjectId.isValid(workoutId)) {
+        const workout = await Workout.findById(workoutId).populate('userId', 'name email').lean();
+        if (workout) {
+          if (!workout.isPublic && workout.userId && workout.userId._id && workout.userId._id.toString() !== userId.toString()) {
+            throw new Error('Not authorized to view this workout');
+          }
+          return workout;
+        }
       }
 
-      return workout;
+      throw new Error('Workout not found');
     } catch (error) {
       logger.error(`Get workout by ID error: ${error.message}`);
       throw error;
@@ -270,45 +245,84 @@ class WorkoutService {
         caloriesBurned,
       } = logData;
 
-      // Verify workout exists
-      const workout = await Workout.findById(workoutId);
-      if (!workout) {
-        throw new Error('Workout not found');
+      let workout = null;
+      let targetWorkoutId = workoutId;
+      let externalId = null;
+
+      // Handle WorkoutX exercise ID
+      if (typeof workoutId === 'string' && (workoutId.startsWith('ex_') || !mongoose.Types.ObjectId.isValid(workoutId))) {
+        externalId = workoutId;
+        // Check if shadow workout exists in Mongo
+        let shadowWorkout = await Workout.findOne({ externalId: workoutId });
+        if (!shadowWorkout) {
+          try {
+            const wxEx = await WorkoutXService.getExerciseById(workoutId);
+            if (wxEx) {
+              shadowWorkout = await Workout.create({
+                title: wxEx.title,
+                description: wxEx.description,
+                durationMinutes: wxEx.durationMinutes || 15,
+                category: wxEx.category || 'custom',
+                intensity: wxEx.intensity || 'medium',
+                externalId: wxEx.id,
+                imageUrl: wxEx.imageUrl,
+                videoUrl: wxEx.videoUrl,
+                animationUrl: wxEx.animationUrl,
+                posterUrl: wxEx.posterUrl,
+                model: wxEx.model,
+                counterpartId: wxEx.counterpartId,
+                isPublic: true,
+                isActive: true,
+              });
+            }
+          } catch (e) {
+            logger.warn(`Could not create shadow workout for ${workoutId}: ${e.message}`);
+          }
+        }
+        if (shadowWorkout) {
+          workout = shadowWorkout;
+          targetWorkoutId = shadowWorkout._id;
+        }
+      } else if (mongoose.Types.ObjectId.isValid(workoutId)) {
+        workout = await Workout.findById(workoutId);
       }
 
-      // For custom workouts (user-created), default to 100% completion
-      let finalCompletionPercentage = completionPercentage;
-      if (workout.userId && workout.userId.toString() === userId.toString()) {
-        finalCompletionPercentage = completionPercentage || 100;
-      } else {
-        finalCompletionPercentage = completionPercentage || 0;
-      }
+      const finalDuration = durationMinutes || (workout ? workout.durationMinutes : 15);
+      const finalIntensity = intensity || (workout ? workout.intensity : 'medium');
+      const finalCompletionPercentage = completionPercentage !== undefined ? completionPercentage : 100;
 
       // Create workout log
       const workoutLog = await WorkoutLog.create({
         userId,
-        workoutId,
+        workoutId: targetWorkoutId || workoutId,
+        workoutExternalId: externalId,
         scheduledTime,
         actualStartTime,
         actualEndTime,
-        durationMinutes: durationMinutes || workout.durationMinutes,
-        intensity: intensity || workout.intensity,
+        durationMinutes: finalDuration,
+        intensity: finalIntensity,
         status: finalCompletionPercentage >= 100 ? 'completed' : 'scheduled',
         completed: finalCompletionPercentage >= 100,
         completionPercentage: finalCompletionPercentage,
         notes,
         rating,
         perceivedExertion,
-        exercises: exercises || workout.exercises,
-        caloriesBurned,
+        exercises: exercises || (workout ? workout.exercises : []),
+        caloriesBurned: caloriesBurned || (finalDuration * 6),
         date: new Date().setHours(0, 0, 0, 0),
       });
 
       // Trigger recovery score recalculation
       this.triggerRecoveryRecalculation(userId);
 
-      // Populate workout for notification
-      await workoutLog.populate('workoutId');
+      // Populate workout if targetWorkoutId is a valid Mongo ObjectId
+      if (mongoose.Types.ObjectId.isValid(targetWorkoutId)) {
+        try {
+          await workoutLog.populate('workoutId');
+        } catch (popErr) {
+          logger.warn(`Could not populate workoutId on log: ${popErr.message}`);
+        }
+      }
 
       return workoutLog;
     } catch (error) {

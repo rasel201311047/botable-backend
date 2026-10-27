@@ -18,6 +18,7 @@ router.post('/schedule', protect, WorkoutController.scheduleWorkout);
 
 // Workout management - /:id routes come AFTER specific routes
 router.get('/', protect, WorkoutController.getWorkouts);
+router.get('/recommended', protect, WorkoutController.getRecommendedWorkouts);
 router.get('/:id', protect, WorkoutController.getWorkoutById);
 router.post('/', protect, uploadWorkoutImage().fields([
   { name: 'image', maxCount: 1 },
