@@ -26,3 +26,4 @@ const files = walk(root);
 for (const file of files) {
   execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
 }
+console.log(`Successfully validated ${files.length} JavaScript files. Build ready.`);

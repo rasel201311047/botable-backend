@@ -38,6 +38,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build": "node scripts/typecheck.js",
     "setup": "node scripts/setup.js",
     "test": "jest",
     "lint": "eslint . --ext .js",
