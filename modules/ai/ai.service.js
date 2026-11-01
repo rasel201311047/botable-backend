@@ -79,7 +79,7 @@ class AIService {
       ctx.profile.goal = goal;
       ctx.profile.goalLabel = { fat_loss: 'Fat Loss', strength_building: 'Strength Building', maintenance: 'Maintenance' }[goal];
     }
-    return buildWorkoutPlan(ctx, { duration: duration === 'month' ? 'month' : 'week', equipment });
+    return await buildWorkoutPlan(ctx, { duration: duration === 'month' ? 'month' : 'week', equipment });
   }
 
   /** "Analyze my macros". */

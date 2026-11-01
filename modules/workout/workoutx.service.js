@@ -393,6 +393,57 @@ class WorkoutXService {
     }
   }
 
+  /**
+   * Fetches / caches a comprehensive pool of WorkoutX exercises for the AI Workout Planner.
+   * Exercises are strictly partitioned by the user's gender model (male/female)
+   * across all core body parts.
+   */
+  async getExercisePoolForPlanner({ gender = 'male', equipment = 'home' } = {}) {
+    const userModel = this.normalizeGender(gender);
+    const cacheKey = `wx_planner_pool_v3_${userModel}_${equipment}`;
+    const cached = getCached(cacheKey);
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      return cached;
+    }
+
+    const bodyParts = ['Cardio', 'Chest', 'Upper Legs', 'Back', 'Waist', 'Shoulders', 'Upper Arms'];
+    const pool = [];
+
+    try {
+      const results = await Promise.allSettled(
+        bodyParts.map(bp =>
+          this.getLibraryExercises({
+            limit: 15,
+            offset: 0,
+            gender: userModel,
+            bodyPart: bp,
+          })
+        )
+      );
+
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value?.results) {
+          pool.push(...res.value.results);
+        }
+      }
+
+      if (pool.length > 0) {
+        setCached(cacheKey, pool, 6 * 60 * 60 * 1000);
+        return pool;
+      }
+    } catch (err) {
+      logger.error(`getExercisePoolForPlanner error: ${err.message}`);
+    }
+
+    // Fallback: general query if partitioned query failed
+    const fallbackRes = await this.getLibraryExercises({ limit: 50, gender: userModel });
+    if (fallbackRes?.results?.length > 0) {
+      return fallbackRes.results;
+    }
+
+    return [];
+  }
+
   clearCache() {
     clearCache();
   }

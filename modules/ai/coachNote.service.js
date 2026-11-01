@@ -31,7 +31,7 @@ const FOCUS = {
 const inflight = new Map();
 
 // ------------------------------------------------------------------ tool facts
-const buildFacts = (tool, ctx) => {
+const buildFacts = async (tool, ctx) => {
   switch (tool) {
     case 'nutrition': {
       const a = buildNutritionAdvice(ctx);
@@ -68,7 +68,7 @@ const buildFacts = (tool, ctx) => {
       };
     }
     case 'workout': {
-      const a = buildWorkoutPlan(ctx, {});
+      const a = await buildWorkoutPlan(ctx, {});
       return {
         lines: [
           `PLAN: ${a.summary.workouts} sessions, ${a.summary.totalMinutes} min total, ~${a.summary.estCalories} kcal burned. Adjustments: ${a.personalization.adjustments.join(' ') || 'none'}`,
@@ -140,7 +140,7 @@ Rules:
 // ------------------------------------------------------------------ main
 const generate = async (userId, tool) => {
   const ctx = await buildUserContext(userId, { days: 14 });
-  const facts = buildFacts(tool, ctx);
+  const facts = await buildFacts(tool, ctx);
   const digest = [toPromptDigest(ctx), ...facts.lines].filter(Boolean).join('\n');
   const hash = crypto.createHash('sha1').update(`${tool}|${digest}`).digest('hex');
 

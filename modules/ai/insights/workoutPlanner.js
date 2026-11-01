@@ -1,11 +1,11 @@
 /**
- * "Generate Workout Plan" - personalised, instant and stable.
+ * "Recommended Workouts" / "Generate Workout Plan" - personalised, instant and stable.
  *
- * Tailored from: goal, experience (real workout history), readiness (sleep + load + fuel),
- * sleep debt, body metrics (weight / BMI -> impact level & calorie burn), shift schedule.
- * No network / AI call in the request path, so it responds immediately. The plan is seeded
- * per user per week so it does not reshuffle on every refresh.
+ * Tailored from: goal (fat loss, strength, maintenance), body metrics (weight, height, BMI, gender),
+ * experience (beginner, intermediate, advanced), and readiness (sleep score, recovery, fatigue).
+ * Powered by real WorkoutX API library exercises with high-definition 3D animations and posters.
  */
+const WorkoutXService = require('../../workout/workoutx.service');
 const { getExercisePool } = require('./exerciseLibrary');
 const { buildSleepCoaching } = require('./sleepInsights');
 const { helpers } = require('../context/userContext.service');
@@ -67,9 +67,9 @@ const HIGH_IMPACT = /jump|burpee|plyo|sprint|hop|skater|box|high knee|bound|skip
 const CORE_PARTS = new Set(['waist']);
 
 const EQUIPMENT_SETS = {
-  bodyweight: ['body weight'],
-  home: ['body weight', 'dumbbell', 'band', 'resistance band', 'kettlebell'],
-  gym: null, // anything
+  bodyweight: ['body weight', 'bodyweight'],
+  home: ['body weight', 'bodyweight', 'dumbbell', 'band', 'resistance band', 'kettlebell'],
+  gym: null, // anything allowed
 };
 
 // ------------------------------------------------------------ seeded rng
@@ -178,23 +178,59 @@ const secondsFor = rx => {
   return rx.sets * (setTime + rx.rest_sec);
 };
 
+// ------------------------------------------------------------ AI Reason Helper
+const generateAiReason = ({ goal, exercise, bmi, weightKg, avoidImpact, readiness, sessionKind }) => {
+  if (sessionKind === 'recovery' || readiness < 50) {
+    return 'Active recovery selected to relieve joint tension and restore daily readiness.';
+  }
+  if (avoidImpact) {
+    return `Zero-impact exercise selected to protect knee and hip joints at ${weightKg} kg / BMI ${bmi}.`;
+  }
+  if (goal === 'fat_loss') {
+    return 'High-metabolic calorie burning exercise selected for your fat loss target.';
+  }
+  if (goal === 'strength_building') {
+    return 'Progressive resistance exercise selected to maximize muscle hypertrophy and power.';
+  }
+  return 'Balanced functional exercise selected for endurance and full-body conditioning.';
+};
+
 // ------------------------------------------------------------ selection
 const pickExercises = ({ session, pool, equipmentSet, count, rand, avoidImpact, usedIds }) => {
   const recovery = session.kind === 'recovery';
   const stretchOk = recovery || session.kind === 'core';
-  const notStretch = e => stretchOk || !STRETCH.test(e.name);
-  const lowImpact = e => !(avoidImpact || recovery) || !HIGH_IMPACT.test(e.name);
-  const isGentle = e => STRETCH.test(e.name) || /walk|march|easy/i.test(e.name);
-  const eligible = e => (!equipmentSet || equipmentSet.includes(e.equipment)) && lowImpact(e) && notStretch(e);
+  const notStretch = e => stretchOk || !STRETCH.test(e.name || e.title || '');
+  const lowImpact = e => !(avoidImpact || recovery) || !HIGH_IMPACT.test(e.name || e.title || '');
+  const isGentle = e => STRETCH.test(e.name || e.title || '') || /walk|march|easy/i.test(e.name || e.title || '');
+
+  const getPart = e => String(e.bodyPart || e.body_part || '').toLowerCase();
+  const getEquip = e => {
+    if (Array.isArray(e.equipment)) return e.equipment.map(x => String(x).toLowerCase());
+    return [String(e.equipment || '').toLowerCase()];
+  };
+  const equipMatches = e => {
+    if (!equipmentSet) return true; // gym allows all equipment
+    const eqList = getEquip(e);
+    return eqList.some(item =>
+      equipmentSet.some(allowed => item.includes(allowed) || allowed.includes(item))
+    );
+  };
+
+  const eligible = e => equipMatches(e) && lowImpact(e) && notStretch(e);
 
   const perPart = session.parts.map(part => {
-    let list = pool.filter(e => e.body_part === part && eligible(e));
-    if (!list.length) list = pool.filter(e => e.body_part === part && e.equipment === 'body weight' && lowImpact(e) && notStretch(e));
-    if (!list.length) list = pool.filter(e => e.body_part === part && notStretch(e));
-    if (!list.length) list = pool.filter(e => e.body_part === part);
+    const pLower = part.toLowerCase();
+    let list = pool.filter(e => getPart(e) === pLower && eligible(e));
+    if (!list.length) list = pool.filter(e => getPart(e) === pLower && equipMatches(e) && lowImpact(e));
+    if (!list.length) list = pool.filter(e => getPart(e) === pLower && lowImpact(e));
+    if (!list.length) list = pool.filter(e => getPart(e) === pLower);
+    if (!list.length) list = pool.filter(e => eligible(e));
+    if (!list.length) list = pool;
+
     // prefer exercises not used earlier in the week for variety
-    const fresh = list.filter(e => !usedIds.has(e.id));
-    const base = fresh.length >= 3 ? fresh : list;
+    const fresh = list.filter(e => !usedIds.has(e.id || e._id));
+    const base = fresh.length >= 2 ? fresh : list;
+
     // recovery sessions: stretches / walking / mobility first, then anything low-impact
     const ordered = recovery
       ? [...seededShuffle(base.filter(isGentle), rand), ...seededShuffle(base.filter(e => !isGentle(e)), rand)]
@@ -204,29 +240,61 @@ const pickExercises = ({ session, pool, equipmentSet, count, rand, avoidImpact, 
 
   const chosen = [];
   let guard = 0;
-  while (chosen.length < count && guard < count * 6) {
+  while (chosen.length < count && guard < count * 8) {
     for (const entry of perPart) {
       if (chosen.length >= count) break;
-      const next = entry.list.find(e => !chosen.some(c => c.id === e.id));
+      const next = entry.list.find(e => !chosen.some(c => (c.id || c._id) === (e.id || e._id)));
       if (next) chosen.push({ ...next, _part: entry.part });
     }
     guard += 1;
-    if (perPart.every(entry => entry.list.every(e => chosen.some(c => c.id === e.id)))) break;
+    if (perPart.every(entry => entry.list.every(e => chosen.some(c => (c.id || c._id) === (e.id || e._id))))) break;
   }
   return chosen;
 };
 
 // ------------------------------------------------------------ main
-const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) => {
+const buildWorkoutPlan = async (ctx, { duration = 'week', equipment = 'home', exercisePool = null } = {}) => {
   const { profile: p, workouts: w, readiness: r, sleep: s, nutrition: n, targets: t } = ctx;
   const equipKey = EQUIPMENT_SETS[equipment] !== undefined ? equipment : 'home';
   const equipmentSet = EQUIPMENT_SETS[equipKey];
   const goal = TEMPLATES[p.goal] ? p.goal : 'maintenance';
   const weeks = duration === 'month' ? 4 : 1;
   const weight = p.weightKg || 70;
-  const pool = getExercisePool();
-  const sleepPlan = buildSleepCoaching(ctx);
 
+  // Retrieve WorkoutX exercises pool
+  let pool = exercisePool;
+  if (!pool || !Array.isArray(pool) || !pool.length) {
+    try {
+      pool = await WorkoutXService.getExercisePoolForPlanner({
+        gender: p.gender || 'male',
+        equipment: equipKey,
+      });
+    } catch (err) {
+      pool = [];
+    }
+  }
+  if (!pool || !pool.length) {
+    pool = getExercisePool().map(e => ({
+      id: e.id,
+      _id: e.id,
+      name: e.name,
+      title: e.name,
+      bodyPart: e.body_part,
+      target: e.target,
+      equipment: [e.equipment],
+      posterUrl: '',
+      animationUrl: '',
+      durationMinutes: 15,
+      intensity: 'medium',
+    }));
+  }
+
+  let sleepPlan = null;
+  try {
+    sleepPlan = buildSleepCoaching(ctx);
+  } catch (e) {
+    sleepPlan = null;
+  }
   const adjustments = [];
 
   // ---- sessions per week from experience, then reduced by recovery signals
@@ -256,11 +324,11 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
   if (p.shiftType === 'fixed_night') adjustments.push('Sessions kept short and home-friendly for night-shift life; train 1-2h after waking, not right before sleep.');
 
   // ---- training window from the user's sleep plan
-  const wake = toMinutes(sleepPlan.stats.plan.wake);
-  const trainStart = wake !== null ? toHHmm(wake + 120) : null;
-  const trainingWindow = trainStart
-    ? `${trainStart} (about 2h after you wake at ${sleepPlan.stats.plan.wake}) and at least 3h before bed at ${sleepPlan.stats.plan.bedtime}`
-    : null;
+  const wakeStr = sleepPlan?.stats?.plan?.wake || '06:00';
+  const bedtimeStr = sleepPlan?.stats?.plan?.bedtime || '22:00';
+  const wake = toMinutes(wakeStr);
+  const trainStart = wake !== null ? toHHmm(wake + 120) : '08:00 AM';
+  const trainingWindow = `${trainStart} (about 2h after you wake at ${wakeStr}) and at least 3h before bed at ${bedtimeStr}`;
 
   const schedule = [];
   const usedIds = new Set();
@@ -275,7 +343,7 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
     if (weeks > 1 && week === 4) {
       weekSessions = Math.max(2, sessions - 1);
     }
-    if (readinessMode === 'recovery' && week >= 2) mode = 'normal'; // recovery only gates the first week
+    if (readinessMode === 'recovery' && week >= 2) mode = 'normal';
 
     if (mode === 'recovery') phase = { ...PHASES[4] };
     const dayIndexes = SESSION_DAY_SETS[Math.min(5, Math.max(2, weekSessions))];
@@ -297,6 +365,11 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
         schedule.push({
           day: label,
           workout: 'Rest Day',
+          title: 'Rest Day',
+          id: null,
+          _id: null,
+          posterUrl: '',
+          imageUrl: '',
           duration: null,
           intensity: 'Rest',
           notes: `Full rest. ${s.debtHours7 >= 2 ? `Use it to catch up on sleep (you are ${s.debtHours7}h behind your ${s.targetHours}h target).` : 'Prioritise sleep, protein and hydration.'}`,
@@ -313,7 +386,13 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
       const recovery = session.kind === 'recovery';
       const count = recovery ? 4 : w.experience === 'beginner' || mode === 'light' ? 4 : session.kind === 'hiit' ? 5 : 6;
       const picked = pickExercises({ session, pool, equipmentSet, count, rand, avoidImpact, usedIds });
-      picked.forEach(e => usedIds.add(e.id));
+      picked.forEach(e => usedIds.add(e.id || e._id));
+
+      const primary = picked[0] || null;
+      const workoutTitle = primary ? (primary.title || primary.name) : session.name;
+      const workoutId = primary ? (primary.id || primary._id) : null;
+      const posterUrl = primary?.posterUrl || primary?.imageUrl || '';
+      const animationUrl = primary?.animationUrl || primary?.videoUrl || '';
 
       // heavier compound lifts first: legs/back/chest before arms/core
       const order = { 'upper legs': 0, back: 1, chest: 2, shoulders: 3, 'upper arms': 4, 'lower legs': 5, cardio: 6, waist: 7 };
@@ -321,13 +400,35 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
 
       let seconds = 5 * 60 + 5 * 60; // warm-up + cool-down
       const exercises = ordered.map((e, i) => {
-        const rx = prescribe({ session, goal, phase, experience: w.experience, readiness: mode === 'light' ? Math.min(r.score, 49) : r.score, index: i, part: e._part, equipment: equipKey, name: e.name });
+        const rx = prescribe({
+          session,
+          goal,
+          phase,
+          experience: w.experience,
+          readiness: mode === 'light' ? Math.min(r.score, 49) : r.score,
+          index: i,
+          part: e._part,
+          equipment: equipKey,
+          name: e.name || e.title,
+        });
         seconds += secondsFor(rx);
         const { _part, _builtin, ...rest } = e;
-        return { ...rest, ...rx };
+        return {
+          id: e.id || e._id,
+          _id: e.id || e._id,
+          name: e.name || e.title,
+          title: e.title || e.name,
+          bodyPart: e.bodyPart || e.body_part || _part,
+          target: e.target || '',
+          posterUrl: e.posterUrl || e.imageUrl || '',
+          animationUrl: e.animationUrl || e.videoUrl || '',
+          equipment: e.equipment,
+          ...rest,
+          ...rx,
+        };
       });
 
-      const minutes = Math.max(15, Math.min(75, Math.round(seconds / 60 / 5) * 5));
+      const minutes = primary?.durationMinutes || Math.max(15, Math.min(75, Math.round(seconds / 60 / 5) * 5));
       const intensity = recovery ? 'Recovery' : mode === 'light' || r.score < 50 ? 'Low' : phase.intensity;
       const met = MET[session.kind] || 5;
       const estCalories = round0(met * weight * (minutes / 60));
@@ -342,12 +443,34 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
       if (!recovery) noteBits.push(`Eat 25-40g protein within 2h after (your daily target is ${t.protein}g) and drink ~${Math.round(t.waterMl / 1000 * 10) / 10} L today.`);
       if (trainStart && d === 0 && week === 1) noteBits.push(`Best time to train: ${trainStart}.`);
 
+      const aiReason = generateAiReason({
+        goal,
+        exercise: primary,
+        bmi: p.bmi,
+        weightKg: p.weightKg,
+        avoidImpact,
+        readiness: r.score,
+        sessionKind: session.kind,
+      });
+
       schedule.push({
         day: label,
-        workout: session.name,
+        workout: workoutTitle,
+        title: workoutTitle,
+        id: workoutId,
+        _id: workoutId,
+        posterUrl,
+        imageUrl: posterUrl,
+        videoUrl: animationUrl,
+        animationUrl,
+        bodyPart: primary?.bodyPart || session.parts[0],
+        target: primary?.target || '',
+        equipment: primary?.equipment || [equipKey],
         duration: minutes,
+        durationMinutes: minutes,
         intensity,
         notes: noteBits.join(' '),
+        aiReason,
         focus: session.parts.filter(x => x !== 'cardio').concat(session.parts.includes('cardio') ? ['cardio'] : []),
         phase: phase.name,
         estCalories,
@@ -362,7 +485,7 @@ const buildWorkoutPlan = (ctx, { duration = 'week', equipment = 'home' } = {}) =
 
   const chips = [
     { label: 'Goal', value: p.goalLabel },
-    { label: 'Level', value: w.experience[0].toUpperCase() + w.experience.slice(1) },
+    { label: 'Level', value: (w.experience || 'beginner')[0].toUpperCase() + (w.experience || 'beginner').slice(1) },
     { label: 'Readiness', value: readinessKnown ? `${r.score}/100` : 'Log sleep to unlock' },
   ];
   if (p.weightKg) chips.push({ label: 'Body', value: `${p.weightKg} kg${p.bmi ? ` - BMI ${p.bmi}` : ''}` });
