@@ -122,16 +122,16 @@ class UserController {
    */
   static async deleteAccount(req, res, next) {
     try {
-      const { password } = req.body;
+      const { email, password } = req.body || {};
 
-      if (!password) {
+      if (!email && !password) {
         return res.status(400).json({
           status: 'error',
-          message: 'Password is required for account deletion'
+          message: 'Please provide your email to confirm account deletion'
         });
       }
 
-      await UserService.deleteAccount(req.user.id, password);
+      await UserService.deleteAccount(req.user.id, { email, password });
 
       res.status(200).json({
         status: 'success',
