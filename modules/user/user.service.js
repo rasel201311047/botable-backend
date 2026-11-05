@@ -434,8 +434,9 @@ class UserService {
 
   /**
    * Delete user account
+   * Supports email confirmation as requested, with password fallback
    */
-  static async deleteAccount(userId, password) {
+  static async deleteAccount(userId, confirmation = {}) {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -443,17 +444,40 @@ class UserService {
       const user = await User.findById(userId).select('+password').session(session);
 
       if (!user) {
-        throw new Error('User not found');
+        const error = new Error('User not found');
+        error.statusCode = 404;
+        throw error;
       }
 
-      // Verify password
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        throw new Error('Invalid password');
+      // Support both object { email, password } and legacy string password
+      const payload = typeof confirmation === 'string' ? { password: confirmation } : (confirmation || {});
+      const { email, password } = payload;
+
+      if (email) {
+        const normalizedInput = String(email).trim().toLowerCase();
+        const normalizedUser = String(user.email).trim().toLowerCase();
+        if (normalizedInput !== normalizedUser) {
+          const error = new Error('Confirmation email does not match your account email');
+          error.statusCode = 400;
+          throw error;
+        }
+      } else if (password) {
+        const isPasswordValid = await user.comparePassword(password);
+        if (!isPasswordValid) {
+          const error = new Error('Invalid password');
+          error.statusCode = 400;
+          throw error;
+        }
+      } else {
+        const error = new Error('Please provide your email to confirm account deletion');
+        error.statusCode = 400;
+        throw error;
       }
 
-      // Soft delete - mark as inactive
+      // Soft delete - mark as inactive & disabled
       user.isActive = false;
+      user.accountStatus = 'disabled';
+      user.passwordVersion = (user.passwordVersion || 1) + 1;
       user.email = `deleted_${Date.now()}_${user.email}`;
       await user.save({ session });
 
