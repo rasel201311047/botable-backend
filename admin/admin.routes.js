@@ -12,6 +12,7 @@ const adminSubscriptionsController = require('./subscriptions/admin.subscription
 const adminSubscriptionPlansController = require('./subscriptions/admin.subscription-plans.controller');
 const adminAnalyticsController = require('./analytics/admin.analytics.controller');
 const adminSettingsController = require('./settings/admin.settings.controller');
+const adminWishlistController = require('../modules/wishlist/wishlist.controller');
 const adminContentRoutes = require('./content/admin.content.routes');
 const { uploadWorkoutImage } = require('../config/upload');
 
@@ -33,6 +34,11 @@ router.delete('/users/:id', adminUsersController.deleteUser);
 router.put('/users/:id/status', adminUsersController.updateUserStatus);
 router.put('/users/:id/block', adminUsersController.blockUser);
 router.put('/users/:id/unblock', adminUsersController.unblockUser);
+
+// Wishlist management
+router.get('/wishlist', adminWishlistController.getWishlist);
+router.get('/wishlist/export', adminWishlistController.exportWishlistCsv);
+router.delete('/wishlist/:id', adminWishlistController.deleteWishlistEntry);
 
 // Workout management
 router.get('/workouts', adminWorkoutsController.getWorkouts);
