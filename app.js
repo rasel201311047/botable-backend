@@ -38,6 +38,7 @@ const dashboardRoutes = require('./modules/userDashboard/userdashboard.routes');
 const calendarRoutes = require('./modules/calendar/calendar.routes');
 const engineRoutes = require('./modules/engine/engine.routes');
 const adminRoutes = require('./admin/admin.routes');
+const wishlistRoutes = require('./modules/wishlist/wishlist.routes');
 
 const app = express();
 
@@ -160,6 +161,8 @@ app.use('/api/ai', time12hMiddleware, aiRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/notifications', time12hMiddleware, notificationRoutes);
 app.use('/api', contentRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/waitlist', wishlistRoutes);
 // Admin Routes
 app.use('/api/admin', adminRoutes);
 
